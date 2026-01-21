@@ -93,7 +93,7 @@ def process_qr_checkin(df):
     return df
 
 # --- [2. 페이지 설정 및 디자인] ---
-st.set_page_config(page_title="생과대 스터디룸 예약", page_icon="🌿", layout="wide")
+st.set_page_config(page_title="생대 스터디룸 예약", page_icon="🌿", layout="wide")
 
 st.markdown("""
     <style>
@@ -114,8 +114,7 @@ df_all = process_qr_checkin(df_all)
 
 # --- [3. 사이드바 실시간 현황 (요청 반영)] ---
 with st.sidebar:
-    st.markdown(f"<h2 style='color:var(--point-color);'>📊 실시간 현황</h2>", unsafe_allow_html=True)
-    st.info(f"🕒 **현재 시각** {current_time_str}")
+    st.markdown(f"<h2 style='color:var(--point-color);'>📊 실시간 예약 현황</h2>", unsafe_allow_html=True)
     
     today_res = df_all[df_all["날짜"] == str(now_kst.date())]
     
@@ -144,7 +143,7 @@ with st.sidebar:
                     st.caption(f"🕒 {or_row['시작']} ~ {or_row['종료']} ({or_row['이름']}님)")
 
 # --- [4. 메인 화면 구성] ---
-st.title("🌿 스터디룸 예약 시스템")
+st.title("🌿 생명과학대학 스터디룸")
 tabs = st.tabs(["📅 예약 신청", "🔍 내 예약 확인", "📋 전체 일정", "➕ 시간 연장", "♻️ 반납 및 취소"])
 
 # [탭 1: 예약 신청]
@@ -256,6 +255,7 @@ with st.expander("🛠️ 관리자 전용 메뉴"):
                 t = df_ad.iloc[sel]
                 df_ad.drop(df_ad[(df_ad["이름"] == t["이름"]) & (df_ad["학번"] == t["학번"]) & (df_ad["날짜"] == t["날짜"]) & (df_ad["시작"] == t["시작"])].index).to_csv(DB_FILE, index=False, encoding='utf-8-sig')
                 st.rerun()
+
 
 
 

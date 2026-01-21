@@ -140,7 +140,7 @@ with st.sidebar:
             if not other_res.empty:
                 st.markdown("<p style='font-size: 0.8rem; margin-top: 10px; font-weight: bold;'>📅 오늘 전체 일정</p>", unsafe_allow_html=True)
                 for _, or_row in other_res.iterrows():
-                    st.caption(f"🕒 {or_row['시작']} ~ {or_row['종료']} ({or_row['이름']}님)")
+                    st.caption(f"🕒 {or_row['시작']} ~ {or_row['종료']} ({or_row['이름']})")
 
 # --- [4. 메인 화면 구성] ---
 st.title("🌿 생명과학대학 스터디룸 예약")
@@ -256,6 +256,7 @@ with st.expander("🛠️ 관리자"):
                 t = df_ad.iloc[sel]
                 df_ad.drop(df_ad[(df_ad["이름"] == t["이름"]) & (df_ad["학번"] == t["학번"]) & (df_ad["날짜"] == t["날짜"]) & (df_ad["시작"] == t["시작"])].index).to_csv(DB_FILE, index=False, encoding='utf-8-sig')
                 st.rerun()
+
 
 
 

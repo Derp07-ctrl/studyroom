@@ -176,13 +176,22 @@ with tabs[1]:
         else: st.error("내역이 없습니다.")
 
 # [탭 3: 전체 일정 보기]
-with tabs[2]:
+with tab[2]:
     st.markdown('<div class="step-header">📋 통합 예약 일정</div>', unsafe_allow_html=True)
     if not df_all.empty:
         u_dates = sorted(df_all["날짜"].unique())
-        s_date = st.selectbox("날짜 선택", u_dates, key="view_date")
+        s_date = st.selectbox("날짜 선택", u_dates)
         day_df = df_all[df_all["날짜"] == s_date].sort_values(by="시작")
-        st.dataframe(day_df[["방번호", "시작", "종료", "이름", "출석"]], use_container_width=True)
+        c1, c2 = st.columns(2)
+        for r_name, col in zip(["1번 스터디룸", "2번 스터디룸"], [c1, c2]):
+            with col:
+                st.markdown(f"**[{r_name}]**")
+                r_df = day_df[day_df["방번호"] == r_name]
+                if r_df.empty: st.caption("예약 없음")
+                else:
+                    for _, row in r_df.iterrows():
+                        st.markdown(f'<div class="schedule-card">{row["시작"]}~{row["종료"]} | {row["이름"]} ({row["출석"]})</div>', unsafe_allow_html=True)
+
 
 # [탭 4: 시간 연장]
 with tabs[3]:
@@ -238,4 +247,5 @@ with st.expander("🛠️ 관리자 전용 메뉴"):
                 df_ad = df_ad[df_ad['label'] != target_l]
                 df_ad.drop(columns=['label']).to_csv(DB_FILE, index=False, encoding='utf-8-sig')
                 st.rerun()
+
 

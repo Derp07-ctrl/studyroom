@@ -158,7 +158,7 @@ with tabs[0]:
         name = c2.text_input("👤 이름", key="reg_name")
         
         # [수정] 학번 입력 제한: 숫자만 10자리
-        sid = c3.text_input("🆔 학번 (10자리 숫자만)", key="reg_sid", max_chars=10, placeholder="예: 2024123456")
+        sid = c3.text_input("🆔 학번", key="reg_sid", max_chars=10, placeholder="예: 2024123456")
         count = c4.number_input("👥 인원 (최소 3명)", min_value=3, value=3, key="reg_count")
         
         # 유효성 검사 (숫자인지 && 10자리인지)
@@ -318,6 +318,7 @@ with st.expander("🛠️ 관리자 전용 메뉴"):
                 st.rerun()
         else:
             st.info("현재 관리할 예약 내역이 없습니다.")
+
 
 
 

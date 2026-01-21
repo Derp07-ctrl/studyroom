@@ -131,7 +131,7 @@ with st.sidebar:
                     st.warning("⚠️ 15분 내 QR 인증 필요")
                 st.divider()
             else:
-                st.success("✨ 현재 비어 있음")
+                st.success("현재 비어 있음")
 
             next_res = room_today[room_today["시작"] > current_time_str]
             st.markdown("<p style='font-size: 0.9rem; font-weight: bold; margin-bottom: 5px;'>📅 다음 예약 안내</p>", unsafe_allow_html=True)
@@ -318,6 +318,7 @@ with st.expander("🛠️ 관리자 전용 메뉴"):
                 st.rerun()
         else:
             st.info("현재 관리할 예약 내역이 없습니다.")
+
 
 
 

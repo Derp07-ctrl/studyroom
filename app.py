@@ -188,7 +188,6 @@ with tab1:
             else:
                 new_row = pd.DataFrame([[dept, name.strip(), sid.strip(), count, str(date), st_t, en_t, room, "미입실"]], columns=["학과", "이름", "학번", "인원", "날짜", "시작", "종료", "방번호", "출석"])
                 new_row.to_csv(DB_FILE, mode='a', header=not os.path.exists(DB_FILE), index=False, encoding='utf-8-sig')
-                st.balloons()
                 st.markdown(f"""
                     <div class="success-receipt">
                         <div class="receipt-title">🌿 예약 확인서</div>
@@ -285,3 +284,4 @@ with st.expander("🛠️ 관리자 전용 메뉴"):
                 st.rerun()
             st.divider()
             st.dataframe(df_ad.drop(columns=['label']), use_container_width=True)
+

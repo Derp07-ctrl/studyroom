@@ -83,7 +83,6 @@ def process_qr_checkin(df):
             user_name = df.loc[mask, "이름"].values[0]
             df.loc[mask, "출석"] = "입실완료"
             df.to_csv(DB_FILE, index=False, encoding='utf-8-sig')
-            st.balloons() # 체크인 성공 축하 효과
             st.success(f"✅ 인증 성공: {user_name}님, {target_room} 입실 확인되었습니다!")
             st.query_params.clear()
         else:
@@ -307,3 +306,4 @@ with st.expander("🛠️ 관리자 전용 메뉴"):
                 st.rerun()
             st.divider()
             st.dataframe(df_ad.drop(columns=['label']), use_container_width=True)
+

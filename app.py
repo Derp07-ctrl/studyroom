@@ -159,17 +159,17 @@ with tabs[0]:
         
         # --- [디테일: 학번 입력 제한] ---
         # max_chars=8로 8칸 제한, help로 안내문 제공
-        sid = c3.text_input("🆔 학번 (8자리 숫자만)", key="reg_sid", max_chars=8, placeholder="예: 20241234")
+        sid = c3.text_input("🆔 학번", key="reg_sid", max_chars=10, placeholder="예: 2026123456")
         count = c4.number_input("👥 인원 (최소 3명)", min_value=3, value=3, key="reg_count")
         
         # 유효성 검사 (숫자인지 && 8자리인지)
-        is_sid_valid = sid.isdigit() and len(sid) == 8
+        is_sid_valid = sid.isdigit() and len(sid) == 10
         
         if sid:
             if not sid.isdigit():
                 st.caption("❌ **숫자만** 입력 가능합니다.")
-            elif len(sid) < 8:
-                st.caption(f"⚠️ 현재 {len(sid)}자 / **8자리를 모두 입력해주세요.**")
+            elif len(sid) < 10:
+                st.caption(f"⚠️ 현재 {len(sid)}자 / **10자리를 모두 입력해주세요.**")
 
         st.markdown('<div class="step-header">2. 장소 및 시간 선택</div>', unsafe_allow_html=True)
         sc1, sc2, tc1, tc2 = st.columns([2, 1, 1, 1])
@@ -212,7 +212,7 @@ with tabs[0]:
                 <div class="receipt-item"><span>시간</span><b>{res['date']} / {res['start']} ~ {res['end']}</b></div>
             </div>
         """, unsafe_allow_html=True)
-        if st.button("새로운 예약 신청하기"):
+        if st.button("새로고침):
             st.session_state.reserve_success = False
             st.rerun()
         
@@ -322,6 +322,7 @@ with st.expander("🛠️ 관리자 전용 메뉴"):
                 st.rerun()
         else:
             st.info("현재 관리할 예약 내역이 없습니다.")
+
 
 
 

@@ -237,7 +237,7 @@ with tabs[4]:
     if 'cancel_list' in st.session_state:
         opts = [f"{r['날짜']} | {r['방번호']} ({r['시작']}~{r['종료']})" for _, r in st.session_state['cancel_list'].iterrows()]
         target_idx = st.selectbox("취소 대상 선택", range(len(opts)), format_func=lambda x: opts[x])
-        if st.button("최종 취소 확정", type="primary"):
+        if st.button("반납 및 취소", type="primary"):
             df_del = get_latest_df(); t = st.session_state['cancel_list'].iloc[target_idx]
             df_del.drop(df_del[(df_del["이름"] == t["이름"]) & (df_del["학번"] == t["학번"]) & (df_del["날짜"] == t["날짜"]) & (df_del["시작"] == t["시작"])].index).to_csv(DB_FILE, index=False, encoding='utf-8-sig')
             del st.session_state['cancel_list']; st.rerun()
@@ -256,5 +256,6 @@ with st.expander("🛠️ 관리자 전용 메뉴"):
                 t = df_ad.iloc[sel]
                 df_ad.drop(df_ad[(df_ad["이름"] == t["이름"]) & (df_ad["학번"] == t["학번"]) & (df_ad["날짜"] == t["날짜"]) & (df_ad["시작"] == t["시작"])].index).to_csv(DB_FILE, index=False, encoding='utf-8-sig')
                 st.rerun()
+
 
 

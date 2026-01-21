@@ -175,22 +175,51 @@ with tabs[1]:
             st.markdown(f"""<div class="res-card"><h3>✅ {r['이름']}님의 예약</h3><p>📍 {r['방번호']} / 📅 {r['날짜']} / ⏰ {r['시작']} ~ {r['종료']}</p><p>상태: <b>{r['출석']}</b></p></div>""", unsafe_allow_html=True)
         else: st.error("내역이 없습니다.")
 
-# [탭 3: 전체 일정 보기]
-with tab[2]:
-    st.markdown('<div class="step-header">📋 통합 예약 일정</div>', unsafe_allow_html=True)
+with tabs[2]:
+    st.markdown('<div class="step-header">📋 전체 예약 일정</div>', unsafe_allow_html=True)
+    
     if not df_all.empty:
+        # 날짜 선택 UI
         u_dates = sorted(df_all["날짜"].unique())
-        s_date = st.selectbox("날짜 선택", u_dates)
-        day_df = df_all[df_all["날짜"] == s_date].sort_values(by="시작")
-        c1, c2 = st.columns(2)
-        for r_name, col in zip(["1번 스터디룸", "2번 스터디룸"], [c1, c2]):
-            with col:
-                st.markdown(f"**[{r_name}]**")
-                r_df = day_df[day_df["방번호"] == r_name]
-                if r_df.empty: st.caption("예약 없음")
+        s_date = st.selectbox("📅 조회할 날짜를 선택하세요", u_dates, key="view_date")
+        
+        # 선택한 날짜의 데이터 필터링 및 정렬
+        day_df = df_all[df_all["날짜"] == s_date].sort_values(by=["방번호", "시작"])
+        
+        if not day_df.empty:
+            # 방별로 구분하여 카드 형식으로 출력
+            for room_name in ["1번 스터디룸", "2번 스터디룸"]:
+                st.markdown(f"#### 🚪 {room_name}")
+                room_day_df = day_df[day_df["방번호"] == room_name]
+                
+                if room_day_df.empty:
+                    st.write("해당 방은 예약이 없습니다.")
                 else:
-                    for _, row in r_df.iterrows():
-                        st.markdown(f'<div class="schedule-card">{row["시작"]}~{row["종료"]} | {row["이름"]} ({row["출석"]})</div>', unsafe_allow_html=True)
+                    # 가독성을 위해 컬럼 구성
+                    for _, row in room_day_df.iterrows():
+                        # 출석 상태에 따른 배지(Badge) 효과
+                        status_color = "#28a745" if row['출석'] == "입실완료" else "#ffc107"
+                        
+                        st.markdown(f"""
+                            <div class="schedule-card">
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <span style="font-size: 1.1rem; font-weight: bold; color: #3E7D6B;">
+                                        ⏰ {row['시작']} ~ {row['종료']}
+                                    </span>
+                                    <span style="background-color: {status_color}; color: white; padding: 2px 8px; border-radius: 5px; font-size: 0.8rem;">
+                                        {row['출석']}
+                                    </span>
+                                </div>
+                                <div style="margin-top: 5px; color: #555;">
+                                    👤 {row['이름']} ({row['학과']}) | 👥 {row['인원']}명
+                                </div>
+                            </div>
+                        """, unsafe_allow_html=True)
+                st.write("") # 방 사이 간격
+        else:
+            st.info("📅 해당 날짜에 예약된 일정이 없습니다.")
+    else:
+        st.warning("📋 등록된 전체 예약 데이터가 없습니다.")
 
 
 # [탭 4: 시간 연장]
@@ -247,5 +276,6 @@ with st.expander("🛠️ 관리자 전용 메뉴"):
                 df_ad = df_ad[df_ad['label'] != target_l]
                 df_ad.drop(columns=['label']).to_csv(DB_FILE, index=False, encoding='utf-8-sig')
                 st.rerun()
+
 
 

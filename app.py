@@ -223,7 +223,7 @@ with tabs[2]:
         else:
             st.info("📅 선택하신 날짜에는 예약된 일정이 없습니다.")
     else:
-        st.info("📋 현재 등록된 예약 데이터가 전혀 없습니다.")
+        st.info("📋 현재 등록된 예약이 없습니다.")
 
 with tabs[3]:
     st.markdown('<div class="step-header">➕ 이용 시간 연장</div>', unsafe_allow_html=True)
@@ -297,3 +297,4 @@ with st.expander("🛠️ 관리자 전용 메뉴 (예약 강제 삭제)"):
                 st.rerun()
         else:
             st.info("현재 관리할 예약 내역이 없습니다.")
+

@@ -6,6 +6,8 @@ from datetime import datetime, timedelta, timezone
 
 # 데이터 저장 파일명
 DB_FILE = "reservations.csv"
+# 사용하실 로고 URL을 여기에 넣으세요
+LOGO_URL = "https://ibb.co/xSy3YrhF" 
 
 # --- [1. 핵심 함수 정의] ---
 
@@ -14,13 +16,11 @@ def get_kst_now():
     return datetime.now(timezone.utc) + timedelta(hours=9)
 
 def get_latest_df():
-    """최신 데이터를 읽어옵니다."""
     if not os.path.isfile(DB_FILE):
         return pd.DataFrame(columns=["학과", "이름", "학번", "인원", "날짜", "시작", "종료", "방번호", "출석"])
     df = pd.read_csv(DB_FILE)
     if "출석" not in df.columns:
         df["출석"] = "미입실"
-    # 데이터 안정성을 위해 문자열 변환 및 공백 제거
     for col in ["이름", "학번", "날짜", "시작", "종료", "방번호"]:
         df[col] = df[col].astype(str).str.strip()
     return df
@@ -47,7 +47,6 @@ def check_overlap(date, start_t, end_t, room):
     return False
 
 def auto_cleanup_noshow(df):
-    """예약 시작 15분 후 혹은 연장 후 15분 내 미인증 시 자동 삭제"""
     now_kst = get_kst_now().replace(tzinfo=None)
     now_date = str(now_kst.date())
     to_delete = []
@@ -64,7 +63,6 @@ def auto_cleanup_noshow(df):
     return df
 
 def process_qr_checkin(df):
-    """URL 파라미터를 통한 QR 즉시 체크인 (10분 전 조기 입실 포함)"""
     q_params = st.query_params
     if "checkin" in q_params:
         room_code = q_params["checkin"]
@@ -72,16 +70,14 @@ def process_qr_checkin(df):
         now_kst = get_kst_now().replace(tzinfo=None)
         now_date = str(now_kst.date())
         now_time = now_kst.strftime("%H:%M")
-        
         early_limit = (now_kst + timedelta(minutes=10)).strftime("%H:%M")
-        
         mask = (df["방번호"] == target_room) & (df["날짜"] == now_date) & \
                (df["시작"] <= early_limit) & (df["종료"] > now_time) & (df["출석"] == "미입실")
-        
         if any(mask):
             user_name = df.loc[mask, "이름"].values[0]
             df.loc[mask, "출석"] = "입실완료"
             df.to_csv(DB_FILE, index=False, encoding='utf-8-sig')
+            st.balloons()
             st.success(f"✅ 인증 성공: {user_name}님, 입실 확인되었습니다!")
             st.query_params.clear()
         else:
@@ -89,14 +85,17 @@ def process_qr_checkin(df):
     return df
 
 # --- [2. 페이지 설정 및 디자인] ---
-st.set_page_config(page_title="생대 스터디룸 예약", page_icon="🌿", layout="wide")
+st.set_page_config(page_title="생명과학대학 스터디룸 예약", page_icon=LOGO_URL, layout="wide")
 
-st.markdown("""
+st.markdown(f"""
     <style>
-    :root { --point-color: #A7D7C5; --point-dark: #3E7D6B; }
-    .stButton>button { background-color: var(--point-color); color: white; border-radius: 10px; font-weight: bold; border: none; width: 100%; }
-    .schedule-card, .res-card { padding: 15px; border-radius: 12px; border-left: 6px solid var(--point-color); background-color: rgba(167, 215, 197, 0.1); margin-bottom: 12px; }
-    .step-header { color: var(--point-dark); font-weight: bold; border-bottom: 2px solid var(--point-color); padding-bottom: 5px; margin-bottom: 15px; font-size: 1.2rem; }
+    :root {{ --point-color: #A7D7C5; --point-dark: #3E7D6B; }}
+    .stButton>button {{ background-color: var(--point-color); color: white; border-radius: 10px; font-weight: bold; border: none; width: 100%; }}
+    .schedule-card, .res-card {{ padding: 15px; border-radius: 12px; border-left: 6px solid var(--point-color); background-color: rgba(167, 215, 197, 0.1); margin-bottom: 12px; }}
+    .step-header {{ color: var(--point-dark); font-weight: bold; border-bottom: 2px solid var(--point-color); padding-bottom: 5px; margin-bottom: 15px; font-size: 1.2rem; }}
+    .success-receipt {{ border: 2px dashed var(--point-color); padding: 25px; border-radius: 15px; margin-top: 20px; }}
+    .receipt-title {{ color: var(--point-color); font-size: 1.5rem; font-weight: bold; text-align: center; margin-bottom: 20px; }}
+    .receipt-item {{ display: flex; justify-content: space-between; margin-bottom: 10px; border-bottom: 1px solid rgba(167, 215, 197, 0.3); padding-bottom: 5px; }}
     </style>
     """, unsafe_allow_html=True)
 
@@ -108,16 +107,17 @@ df_all = get_latest_df()
 df_all = auto_cleanup_noshow(df_all)
 df_all = process_qr_checkin(df_all)
 
-# --- [3. 사이드바 실시간 현황 (요청 반영)] ---
+# --- [3. 사이드바 실시간 현황 (요청 반영 수정)] ---
 with st.sidebar:
-    st.markdown(f"<h2 style='color:var(--point-color);'>📊 실시간 예약 현황</h2>", unsafe_allow_html=True)
+    st.image(LOGO_URL, use_container_width=True)
+    st.markdown(f"<h2 style='text-align: center; color:var(--point-color);'>📊 실시간 현황</h2>", unsafe_allow_html=True)
+    st.info(f"🕒 **현재** {current_time_str}")
     
     today_res = df_all[df_all["날짜"] == str(now_kst.date())]
     
     for r in ["1번 스터디룸", "2번 스터디룸"]:
         with st.expander(f"🚪 {r}", expanded=True):
             room_today = today_res[today_res["방번호"] == r].sort_values(by="시작")
-            # 사용 중 판단 (시간 내 포함 혹은 조기 입실 인증 완료)
             occ = room_today[((room_today["시작"] <= current_time_str) & (room_today["종료"] > current_time_str)) | 
                              ((room_today["출석"] == "입실완료") & (room_today["종료"] > current_time_str))]
             
@@ -125,15 +125,15 @@ with st.sidebar:
                 current_user = occ.iloc[0]
                 status_text = "✅ 현재 사용 중" if current_user["출석"] == "입실완료" else "⚠️ 현재 예약 중"
                 st.error(status_text)
+                # 현재 사용자 정보 복구
                 st.markdown(f"**{current_user['이름']}님 팀**")
                 st.caption(f"⏰ {current_user['시작']} ~ {current_user['종료']}")
                 if current_user["출석"] == "미입실":
                     st.warning("❗ 15분 내 QR 재인증 필요")
             else:
-                st.success("현재 이용 가능")
+                st.success("✨ 현재 이용 가능")
             
-            # 현재 사용 중인 팀 정보를 제외한 '나머지 예약 일정' 표시
-            # occ에 포함되지 않은 오늘 날짜의 다른 예약들
+            # 현재 사용 중인 팀을 제외한 나머지 예약 일정 표시
             other_res = room_today[~room_today.index.isin(occ.index)]
             if not other_res.empty:
                 st.markdown("<p style='font-size: 0.8rem; margin-top: 10px; font-weight: bold;'>📅 오늘 전체 일정</p>", unsafe_allow_html=True)
@@ -141,10 +141,13 @@ with st.sidebar:
                     st.caption(f"🕒 {or_row['시작']} ~ {or_row['종료']} ({or_row['이름']}님)")
 
 # --- [4. 메인 화면 구성] ---
-st.title("생명과학대학 스터디룸 예약")
-tabs = st.tabs(["📅 예약 신청", "🔍 내 예약 확인", "📋 전체 일정", "➕ 시간 연장", "♻️ 반납 및 취소"])
+col_logo, col_title = st.columns([1, 10])
+with col_logo: st.image(LOGO_URL, width=70)
+with col_title: st.title("생명과학대학 스터디룸 예약")
 
-with tabs[0]:
+tab1, tab2, tab3, tab4, tab5 = st.tabs(["📅 예약 신청", "🔍 내 예약 확인", "📋 전체 일정", "➕ 시간 연장", "♻️ 반납 및 취소"])
+
+with tab1:
     st.markdown('<div class="step-header">1. 정보 입력</div>', unsafe_allow_html=True)
     c1, c2, c3, c4 = st.columns(4)
     dept = c1.selectbox("🏢 학과", ["스마트팜과학과", "식품생명공학과", "유전생명공학과", "융합바이오·신소재공학과"], key="reg_dept")
@@ -169,10 +172,23 @@ with tabs[0]:
             elif duration > timedelta(hours=3): st.error("최대 3시간 가능")
             elif check_overlap(date, st_t, en_t, room): st.error("중복 예약")
             else:
+                # 데이터 저장
                 pd.DataFrame([[dept, name, sid, count, str(date), st_t, en_t, room, "미입실"]], columns=df_all.columns).to_csv(DB_FILE, mode='a', header=not os.path.exists(DB_FILE), index=False, encoding='utf-8-sig')
-                st.success("예약 완료!"); st.rerun()
+                
+                # --- [복구] 예약 완료 정보 표시 (확인서) ---
+                st.success("🎉 예약 완료되었습니다!")
+                st.markdown(f"""
+                    <div class="success-receipt">
+                        <div class="receipt-title">🌿 예약 확인서</div>
+                        <div class="receipt-item"><span>신청자</span><b>{name} ({sid})</b></div>
+                        <div class="receipt-item"><span>장소</span><b style="color: var(--point-color);">{room}</b></div>
+                        <div class="receipt-item"><span>시간</span><b>{date} / {st_t} ~ {en_t}</b></div>
+                        <div style="margin-top: 15px; font-size: 0.85rem; opacity: 0.8;">※ 입실 15분 내 QR 체크인 필수입니다.</div>
+                    </div>
+                """, unsafe_allow_html=True)
+                if st.button("새로고침(목록 업데이트)"): st.rerun()
 
-with tabs[1]:
+with tab2:
     mc1, mc2 = st.columns(2)
     m_n, m_s = mc1.text_input("조회 이름", key="lookup_n"), mc2.text_input("조회 학번", key="lookup_s")
     if st.button("조회하기", key="btn_lookup"):
@@ -182,7 +198,7 @@ with tabs[1]:
             for _, r in res.iterrows(): st.markdown(f'<div class="res-card">📍 {r["방번호"]} | {r["날짜"]} | ⏰ {r["시작"]}~{r["종료"]} | 상태: {r["출석"]}</div>', unsafe_allow_html=True)
         else: st.error("내역 없음")
 
-with tabs[2]:
+with tab3:
     df_v = get_latest_df()
     if not df_v.empty:
         s_date = st.selectbox("날짜", sorted(df_v["날짜"].unique()), key="view_date")
@@ -195,7 +211,7 @@ with tabs[2]:
                 for _, row in room_day.iterrows(): st.markdown(f'<div class="schedule-card"><b>{row["시작"]}~{row["종료"]}</b> | {row["이름"]} ({row["출석"]})</div>', unsafe_allow_html=True)
     else: st.info("데이터 없음")
 
-with tabs[3]:
+with tab4:
     st.markdown('<div class="step-header">➕ 이용 시간 연장</div>', unsafe_allow_html=True)
     en_n, en_id = st.text_input("이름", key="ext_n"), st.text_input("학번", key="ext_id")
     if st.button("연장 가능 여부 확인", key="btn_ext_check"):
@@ -206,22 +222,21 @@ with tabs[3]:
             end_dt = datetime.combine(now_kst.date(), datetime.strptime(target['종료'], "%H:%M").time())
             if (end_dt - timedelta(minutes=30)) <= now_kst < end_dt:
                 st.session_state['ext_target'] = target
-                st.success("종료 30분 전입니다. 연장이 가능합니다.")
+                st.success("연장 가능 시간입니다.")
             else: st.warning("연장은 종료 30분 전부터 가능합니다.")
             
     if 'ext_target' in st.session_state:
         target = st.session_state['ext_target']
-        new_en = st.selectbox("새 종료 시각", [t for t in time_options_all if t > target['종료']][:4], key="ext_sel")
-        st.info("⚠️ 연장 시 15분 이내에 QR 코드를 다시 스캔해야 예약이 취소되지 않습니다.")
+        new_en = st.selectbox("새 종료 시간", [t for t in time_options_all if t > target['종료']][:4], key="ext_sel")
         if st.button("연장 확정", key="btn_ext_confirm"):
             df_up = get_latest_df()
             idx = df_up[(df_up["이름"] == en_n.strip()) & (df_up["학번"] == en_id.strip()) & (df_up["시작"] == target['시작'])].index
             df_up.loc[idx, "종료"] = new_en
-            df_up.loc[idx, "출석"] = "미입실" # 재인증 유도
+            df_up.loc[idx, "출석"] = "미입실"
             df_up.to_csv(DB_FILE, index=False, encoding='utf-8-sig')
-            st.success("연장 완료! 15분 내로 QR 재인증을 진행해 주세요."); del st.session_state['ext_target']; st.rerun()
+            st.success("연장 완료! 15분 내로 QR 재인증을 해주세요."); del st.session_state['ext_target']; st.rerun()
 
-with tabs[4]:
+with tab5:
     can_n, can_id = st.text_input("이름", key="can_n"), st.text_input("학번", key="can_id")
     if st.button("내 예약 조회", key="btn_can_lookup"):
         res_c = get_latest_df()[(get_latest_df()["이름"] == can_n.strip()) & (get_latest_df()["학번"] == can_id.strip())]
@@ -229,7 +244,7 @@ with tabs[4]:
     if 'cancel_list' in st.session_state:
         opts = [f"{r['날짜']} | {r['방번호']} ({r['시작']}~{r['종료']})" for _, r in st.session_state['cancel_list'].iterrows()]
         target_idx = st.selectbox("취소 대상 선택", range(len(opts)), format_func=lambda x: opts[x])
-        if st.button("최종 취소 확정", type="primary"):
+        if st.button("반납 및 취소 확정", type="primary"):
             df_del = get_latest_df(); t = st.session_state['cancel_list'].iloc[target_idx]
             df_del.drop(df_del[(df_del["이름"] == t["이름"]) & (df_del["학번"] == t["학번"]) & (df_del["날짜"] == t["날짜"]) & (df_del["시작"] == t["시작"])].index).to_csv(DB_FILE, index=False, encoding='utf-8-sig')
             del st.session_state['cancel_list']; st.rerun()
@@ -240,11 +255,9 @@ with st.expander("🛠️ 관리자"):
         df_ad = get_latest_df()
         st.dataframe(df_ad, use_container_width=True)
         if not df_ad.empty:
-            labels = [f"{r['이름']} | {r['날짜']} | {r['방번호']}" for _, r in df_ad.iterrows()]
+            labels = [f"{r['이름']} | {r['방번호']}" for _, r in df_ad.iterrows()]
             sel = st.selectbox("삭제 대상", range(len(labels)), format_func=lambda x: labels[x])
-            if st.button("퇴실"):
+            if st.button("강제 삭제"):
                 t = df_ad.iloc[sel]
                 df_ad.drop(df_ad[(df_ad["이름"] == t["이름"]) & (df_ad["학번"] == t["학번"]) & (df_ad["날짜"] == t["날짜"]) & (df_ad["시작"] == t["시작"])].index).to_csv(DB_FILE, index=False, encoding='utf-8-sig')
                 st.rerun()
-
-

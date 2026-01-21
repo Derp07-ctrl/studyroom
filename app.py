@@ -82,7 +82,6 @@ def process_qr_checkin(df):
             user_name = df.loc[mask, "이름"].values[0]
             df.loc[mask, "출석"] = "입실완료"
             df.to_csv(DB_FILE, index=False, encoding='utf-8-sig')
-            st.balloons()
             st.success(f"✅ 인증 성공: {user_name}님, 입실 확인되었습니다!")
             st.query_params.clear()
         else:
@@ -90,7 +89,7 @@ def process_qr_checkin(df):
     return df
 
 # --- [2. 페이지 설정 및 디자인] ---
-st.set_page_config(page_title="생과대 스터디룸 예약", page_icon="🌿", layout="wide")
+st.set_page_config(page_title="생대 스터디룸 예약", page_icon="🌿", layout="wide")
 
 st.markdown("""
     <style>
@@ -112,7 +111,6 @@ df_all = process_qr_checkin(df_all)
 # --- [3. 사이드바 실시간 현황 (요청 반영)] ---
 with st.sidebar:
     st.markdown(f"<h2 style='color:var(--point-color);'>📊 실시간 현황</h2>", unsafe_allow_html=True)
-    st.info(f"🕒 **현재 시각** {current_time_str}")
     
     today_res = df_all[df_all["날짜"] == str(now_kst.date())]
     
@@ -132,7 +130,7 @@ with st.sidebar:
                 if current_user["출석"] == "미입실":
                     st.warning("❗ 15분 내 QR 재인증 필요")
             else:
-                st.success("✨ 현재 이용 가능")
+                st.success("현재 이용 가능")
             
             # 현재 사용 중인 팀 정보를 제외한 '나머지 예약 일정' 표시
             # occ에 포함되지 않은 오늘 날짜의 다른 예약들
@@ -143,7 +141,7 @@ with st.sidebar:
                     st.caption(f"🕒 {or_row['시작']} ~ {or_row['종료']} ({or_row['이름']}님)")
 
 # --- [4. 메인 화면 구성] ---
-st.title("🌿 스터디룸 예약 시스템")
+st.title("생명과학대학 스터디룸 예약")
 tabs = st.tabs(["📅 예약 신청", "🔍 내 예약 확인", "📋 전체 일정", "➕ 시간 연장", "♻️ 반납 및 취소"])
 
 with tabs[0]:
@@ -244,7 +242,8 @@ with st.expander("🛠️ 관리자"):
         if not df_ad.empty:
             labels = [f"{r['이름']} | {r['날짜']} | {r['방번호']}" for _, r in df_ad.iterrows()]
             sel = st.selectbox("삭제 대상", range(len(labels)), format_func=lambda x: labels[x])
-            if st.button("강제 삭제"):
+            if st.button("퇴실"):
                 t = df_ad.iloc[sel]
                 df_ad.drop(df_ad[(df_ad["이름"] == t["이름"]) & (df_ad["학번"] == t["학번"]) & (df_ad["날짜"] == t["날짜"]) & (df_ad["시작"] == t["시작"])].index).to_csv(DB_FILE, index=False, encoding='utf-8-sig')
                 st.rerun()
+

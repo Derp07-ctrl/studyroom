@@ -107,8 +107,8 @@ df_all = process_qr_checkin(df_all)
 
 # --- [3. 사이드바 실시간 현황] ---
 with st.sidebar:
-    st.markdown(f"<h2 style='color:var(--point-color); text-align:center;'>📊 실시간 현황</h2>", unsafe_allow_html=True)
-    st.info(f"🕒 **현재 시각** {current_time_str}")
+    st.markdown(f"<h2 style='color:var(--point-color);'>📊 실시간 예약 현황</h2>", unsafe_allow_html=True)
+
     today_res = df_all[df_all["날짜"] == str(now_kst.date())]
     for r in ["1번 스터디룸", "2번 스터디룸"]:
         with st.expander(f"🚪 {r}", expanded=True):
@@ -119,12 +119,15 @@ with st.sidebar:
                 current_user = occ.iloc[0]
                 st.error("✅ 현재 사용 중" if current_user["출석"] == "입실완료" else "⚠️ 인증 대기 중")
                 st.markdown(f"**{current_user['이름']}님 팀** ({current_user['시작']}~{current_user['종료']})")
-            else: st.success("✨ 현재 이용 가능")
+            else: st.success("현재 이용 가능")
+                
             other_res = room_today[~room_today.index.isin(occ.index)]
             if not other_res.empty:
-                st.markdown("<p style='font-size: 0.8rem; margin-top: 5px; font-weight: bold;'>📅 오늘 일정</p>", unsafe_allow_html=True)
-                for _, or_row in other_res.iterrows(): st.caption(f"🕒 {or_row['시작']}~{or_row['종료']} ({or_row['이름']})")
-            elif occ.empty: st.caption("오늘 남은 예약 없음")
+                st.markdown("<p style='font-size: 0.8rem; margin-top: 10px; font-weight: bold;'>📅 오늘 전체 일정</p>", unsafe_allow_html=True)
+                for _, or_row in other_res.iterrows():
+                    st.caption(f"🕒 {or_row['시작']} ~ {or_row['종료']} ({or_row['이름']}님)")
+            elif occ.empty:
+                st.caption("오늘 남은 예약이 없습니다.")
 
 # --- [4. 메인 화면 구성] ---
 st.title("🌿 생명과학대학 스터디룸 예약")
@@ -243,3 +246,4 @@ with st.expander("🛠️ 관리자 전용 메뉴"):
                 df_ad = df_ad.drop(df_ad[(df_ad["이름"] == t["이름"]) & (df_ad["학번"] == t["학번"]) & (df_ad["날짜"] == t["날짜"]) & (df_ad["시작"] == t["시작"])].index)
                 df_ad.to_csv(DB_FILE, index=False, encoding='utf-8-sig'); st.rerun()
         else: st.info("관리할 예약 내역 없음")
+

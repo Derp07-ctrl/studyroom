@@ -165,29 +165,34 @@ with tabs[0]:
     st.markdown('<div class="step-header">2. 장소 및 시간 선택</div>', unsafe_allow_html=True)
     sc1, sc2, tc1, tc2 = st.columns([2, 1, 1, 1])
     room = sc1.selectbox("🚪 장소", ["1번 스터디룸", "2번 스터디룸"], key="reg_room")
-    date = sc2.date_input("📅 날짜", min_value=now_kst.date(), key="reg_date")
     
-    # --- [수정] 시작 시간 선택 로직: 현재 시간보다 15분 전까지만 리스트에 포함 ---
-    if str(date) == str(now_kst.date()):
-        # 현재 시각에서 15분을 뺀 기준점 생성
-        threshold_time = (now_kst - timedelta(minutes=15)).strftime("%H:%M")
-        available_start = [t for t in time_options_all if t >= threshold_time]
-    else:
-        available_start = time_options_all
+    # [수정] 예약 가능 날짜를 오늘부터 14일(2주) 내로 제한
+    date = sc2.date_input("📅 날짜", 
+                          min_value=now_kst.date(), 
+                          max_value=now_kst.date() + timedelta(days=13), 
+                          key="reg_date")
+    
+    threshold_time = (now_kst - timedelta(minutes=15)).strftime("%H:%M")
+    available_start = [t for t in time_options_all if t >= threshold_time] if str(date) == str(now_kst.date()) else time_options_all
     
     if not available_start: st.error("⚠️ 오늘은 더 이상 예약 가능한 시간이 없습니다.")
     else:
         st_t = tc1.selectbox("⏰ 시작", available_start, key="reg_start")
         en_t = tc2.selectbox("⏰ 종료", [t for t in time_options_all if t > st_t], key="reg_end")
+        
         if st.button("🚀 예약 신청", key="btn_reservation"):
+            # [추가] 최대 이용 시간 3시간 검증 로직
+            start_dt = datetime.strptime(st_t, "%H:%M")
+            end_dt = datetime.strptime(en_t, "%H:%M")
+            duration = end_dt - start_dt
+            
             if not (name.strip() and sid.strip()): st.error("⚠️ 이름과 학번을 모두 입력해 주세요.")
+            elif duration > timedelta(hours=3): st.error("🚫 최대 이용 가능 시간은 3시간입니다.")
             elif is_already_booked(name, sid): st.error("🚫 이미 등록된 예약 내역이 존재합니다.")
             elif check_overlap(date, st_t, en_t, room): st.error("❌ 이미 예약된 시간입니다.")
             else:
-                new_row = pd.DataFrame([[dept, name.strip(), sid.strip(), count, str(date), st_t, en_t, room, "미입실"]], columns=df_all.columns)
-                new_row.to_csv(DB_FILE, mode='a', header=not os.path.exists(DB_FILE), index=False, encoding='utf-8-sig')
-                st.success("🎉 예약 완료!"); st.markdown(f'<div class="success-receipt"><div class="receipt-title">🌿 예약 확인서</div><div class="receipt-item"><span>신청자</span><b>{name}</b></div><div class="receipt-item"><span>장소</span><b>{room}</b></div><div class="receipt-item"><span>시간</span><b>{date} / {st_t}~{en_t}</b></div></div>', unsafe_allow_html=True)
-                st.button("새로고침", on_click=st.rerun)
+                pd.DataFrame([[dept, name.strip(), sid.strip(), count, str(date), st_t, en_t, room, "미입실"]], columns=df_all.columns).to_csv(DB_FILE, mode='a', header=not os.path.exists(DB_FILE), index=False, encoding='utf-8-sig')
+                st.success("🎉 예약 완료!"); st.rerun()
 
 with tabs[1]:
     st.markdown('<div class="step-header">🔍 내 예약 내역 확인</div>', unsafe_allow_html=True)
@@ -267,6 +272,7 @@ with st.expander("🛠️ 관리자 전용 메뉴"):
                 df_ad = df_ad.drop(df_ad[(df_ad["이름"] == t["이름"]) & (df_ad["학번"] == t["학번"]) & (df_ad["날짜"] == t["날짜"]) & (df_ad["시작"] == t["시작"])].index)
                 df_ad.to_csv(DB_FILE, index=False, encoding='utf-8-sig'); st.rerun()
         else: st.info("관리할 예약 내역 없음")
+
 
 
 

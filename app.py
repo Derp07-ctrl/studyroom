@@ -281,7 +281,7 @@ with tabs[4]:
 
 # --- [5. 관리자 메뉴] ---
 st.markdown('<div style="height:100px;"></div>', unsafe_allow_html=True)
-with st.expander("🛠️ 관리자 전용 메뉴 (예약 강제 삭제)"):
+with st.expander("🛠️ 관리자 전용 메뉴"):
     pw = st.text_input("관리자 비밀번호", type="password", key="admin_pw")
     if pw == "bio1234":
         df_ad = get_latest_df()
@@ -297,4 +297,5 @@ with st.expander("🛠️ 관리자 전용 메뉴 (예약 강제 삭제)"):
                 st.rerun()
         else:
             st.info("현재 관리할 예약 내역이 없습니다.")
+
 

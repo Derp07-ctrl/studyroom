@@ -124,15 +124,20 @@ with st.sidebar:
                 status_color = "#3E7D6B" if current_user["출석"] == "입실완료" else "#E67E22"
                 status_text = "현재 이용 중" if current_user["출석"] == "입실완료" else "인증 대기 중"
                 
-                # 이름 제외, 상태와 시간만 표시
-                st.markdown(f"### <span style='color:{status_color};'>{status_text}</span>", unsafe_allow_html=True)
-                st.markdown(f"**⏰ 종료 예정 시각:** `{current_user['종료']}`")
+                # HTML을 사용하여 하단 마진(margin-bottom)을 줄임으로써 구분선과의 간격을 좁힙니다.
+                st.markdown(f"""
+                    <div style="margin-bottom: -15px;">
+                        <h3 style="color:{status_color}; margin-bottom: 5px;">{status_text}</h3>
+                        <p style="font-size: 1.1rem; font-weight: bold;">⏰ 종료 예정 시각: <span style="background-color: #f0f2f6; padding: 2px 5px; border-radius: 4px;">{current_user['종료']}</span></p>
+                    </div>
+                """, unsafe_allow_html=True)
                 
                 if current_user["출석"] == "미입실":
                     st.warning("⚠️ 15분 내 QR 인증이 필요합니다.")
-                st.divider()
+                
+                st.divider() # 이제 상단 텍스트와 더 밀착되어 표시됩니다.
             else:
-                st.success("✨ 현재 비어 있음")
+                st.success("현재 비어 있음")
 
             # 2. 앞으로 예정된 예약 일정 (현재 이용 중이거나 종료된 팀 제외)
             next_res = room_today[room_today["시작"] > current_time_str]
@@ -141,10 +146,10 @@ with st.sidebar:
             
             if not next_res.empty:
                 for _, row in next_res.iterrows():
-                    # 다음 예약 리스트에서도 필요한 정보(시간)만 간결하게 표시 가능
                     st.caption(f"🕒 {row['시작']} ~ {row['종료']} (예약 완료)")
             else:
                 st.caption("이후 예정된 예약이 없습니다.")
+                
 # --- [4. 메인 화면 구성] ---
 st.title("🌿 생명과학대학 스터디룸 예약")
 tabs = st.tabs(["📅 예약 신청", "🔍 내 예약 확인", "📋 전체 일정", "➕ 시간 연장", "♻️ 반납 및 취소"])
@@ -262,6 +267,7 @@ with st.expander("🛠️ 관리자 전용 메뉴"):
                 df_ad = df_ad.drop(df_ad[(df_ad["이름"] == t["이름"]) & (df_ad["학번"] == t["학번"]) & (df_ad["날짜"] == t["날짜"]) & (df_ad["시작"] == t["시작"])].index)
                 df_ad.to_csv(DB_FILE, index=False, encoding='utf-8-sig'); st.rerun()
         else: st.info("관리할 예약 내역 없음")
+
 
 
 

@@ -112,33 +112,38 @@ df_all = get_latest_df()
 df_all = auto_cleanup_noshow(df_all)
 df_all = process_qr_checkin(df_all)
 
-# --- [3. 사이드바 실시간 현황 (최적화 버전)] ---
+# --- [3. 사이드바 실시간 현황 (요청 반영)] ---
 with st.sidebar:
     st.markdown(f"<h2 style='color:var(--point-color);'>📊 실시간 현황</h2>", unsafe_allow_html=True)
-    st.info(f"🕒 **현재** {current_time_str}")
+    st.info(f"🕒 **현재 시각** {current_time_str}")
     
     today_res = df_all[df_all["날짜"] == str(now_kst.date())]
     
     for r in ["1번 스터디룸", "2번 스터디룸"]:
         with st.expander(f"🚪 {r}", expanded=True):
             room_today = today_res[today_res["방번호"] == r].sort_values(by="시작")
-            # 사용 중 판단 (시간 내 포함 혹은 인증 완료 후 종료 전)
+            # 사용 중 판단 (시간 내 포함 혹은 조기 입실 인증 완료)
             occ = room_today[((room_today["시작"] <= current_time_str) & (room_today["종료"] > current_time_str)) | 
                              ((room_today["출석"] == "입실완료") & (room_today["종료"] > current_time_str))]
             
             if not occ.empty:
                 current_user = occ.iloc[0]
-                status_text = "✅ 현재 사용 중" if current_user["출석"] == "입실완료" else "⚠️ 인증 대기 중"
+                status_text = "✅ 현재 사용 중" if current_user["출석"] == "입실완료" else "⚠️ 현재 예약 중"
                 st.error(status_text)
                 st.markdown(f"**{current_user['이름']}님 팀**")
                 st.caption(f"⏰ {current_user['시작']} ~ {current_user['종료']}")
                 if current_user["출석"] == "미입실":
                     st.warning("❗ 15분 내 QR 재인증 필요")
             else:
-                st.success("✨ 이용 가능")
-                next_res = room_today[room_today["시작"] > current_time_str]
-                if not next_res.empty:
-                    st.caption(f"📅 예정: {next_res.iloc[0]['시작']} ({next_res.iloc[0]['이름']}님)")
+                st.success("✨ 현재 이용 가능")
+            
+            # 현재 사용 중인 팀 정보를 제외한 '나머지 예약 일정' 표시
+            # occ에 포함되지 않은 오늘 날짜의 다른 예약들
+            other_res = room_today[~room_today.index.isin(occ.index)]
+            if not other_res.empty:
+                st.markdown("<p style='font-size: 0.8rem; margin-top: 10px; font-weight: bold;'>📅 오늘 전체 일정</p>", unsafe_allow_html=True)
+                for _, or_row in other_res.iterrows():
+                    st.caption(f"🕒 {or_row['시작']} ~ {or_row['종료']} ({or_row['이름']}님)")
 
 # --- [4. 메인 화면 구성] ---
 st.title("🌿 스터디룸 예약 시스템")
@@ -253,3 +258,4 @@ with st.expander("🛠️ 관리자 전용 메뉴"):
                 t = df_ad.iloc[sel]
                 df_ad.drop(df_ad[(df_ad["이름"] == t["이름"]) & (df_ad["학번"] == t["학번"]) & (df_ad["날짜"] == t["날짜"]) & (df_ad["시작"] == t["시작"])].index).to_csv(DB_FILE, index=False, encoding='utf-8-sig')
                 st.rerun()
+

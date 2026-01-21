@@ -207,10 +207,7 @@ with tabs[0]:
                 <div style="margin-top: 15px; font-size: 0.85rem; opacity: 0.8;">※ 입실 15분 내 QR 체크인 필수 (미인증 시 자동 취소)</div>
             </div>
         """, unsafe_allow_html=True)
-        if st.button("새로고침"):
-            st.session_state.reserve_success = False
-            st.rerun()
-
+        
 # [나머지 탭 동일]
 with tabs[1]:
     mc1, mc2 = st.columns(2)
@@ -285,4 +282,5 @@ with st.expander("🛠️ 관리자 전용 메뉴"):
                 st.rerun()
         else:
             st.info("현재 관리할 예약 내역이 없습니다.")
+
 

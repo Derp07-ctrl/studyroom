@@ -289,7 +289,7 @@ with st.expander("🛠️ 관리자 전용 메뉴"):
             st.dataframe(df_ad, use_container_width=True)
             labels = [f"{r['이름']} | {r['날짜']} | {r['시작']} ({r['방번호']})" for _, r in df_ad.iterrows()]
             sel = st.selectbox("삭제할 대상을 선택하세요", range(len(labels)), format_func=lambda x: labels[x])
-            if st.button("❌ 선택한 팀 강제 퇴실/삭제"):
+            if st.button("퇴실/삭제"):
                 t = df_ad.iloc[sel]
                 df_ad = df_ad.drop(df_ad[(df_ad["이름"] == t["이름"]) & (df_ad["학번"] == t["학번"]) & (df_ad["날짜"] == t["날짜"]) & (df_ad["시작"] == t["시작"])].index)
                 df_ad.to_csv(DB_FILE, index=False, encoding='utf-8-sig')
@@ -297,5 +297,6 @@ with st.expander("🛠️ 관리자 전용 메뉴"):
                 st.rerun()
         else:
             st.info("현재 관리할 예약 내역이 없습니다.")
+
 
 

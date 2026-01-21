@@ -208,7 +208,7 @@ with tabs[0]:
                 <div class="receipt-item"><span>시간</span><b>{res['date']} / {res['start']} ~ {res['end']}</b></div>
             </div>
         """, unsafe_allow_html=True)
-        if st.button("새로운 예약 신청하기"):
+        if st.button("새로고침"):
             st.session_state.reserve_success = False
             st.rerun()
         
@@ -318,6 +318,7 @@ with st.expander("🛠️ 관리자 전용 메뉴"):
                 st.rerun()
         else:
             st.info("현재 관리할 예약 내역이 없습니다.")
+
 
 
 

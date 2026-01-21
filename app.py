@@ -160,9 +160,14 @@ with tabs[0]:
         sid = c3.text_input("🆔 학번", key="reg_sid")
         count = c4.number_input("👥 인원 (최소 3명)", min_value=3, value=3, key="reg_count")
 
+# 유효성 검사 (숫자인지 && 8자리인지)
         is_sid_valid = sid.isdigit() and len(sid) == 8
-        if sid and not is_sid_valid:
-            st.caption("⚠️ 학번은 **8자리 숫자**로 입력해 주세요.")
+        
+        if sid:
+            if not sid.isdigit():
+                st.caption("❌ **숫자만** 입력 가능합니다.")
+            elif len(sid) < 8:
+                st.caption(f"⚠️ 현재 {len(sid)}자 / **8자리를 모두 입력해주세요.**")
         
         st.markdown('<div class="step-header">2. 장소 및 시간 선택</div>', unsafe_allow_html=True)
         sc1, sc2, tc1, tc2 = st.columns([2, 1, 1, 1])
@@ -318,6 +323,7 @@ with st.expander("🛠️ 관리자 전용 메뉴"):
                 st.rerun()
         else:
             st.info("현재 관리할 예약 내역이 없습니다.")
+
 
 
 

@@ -141,6 +141,17 @@ with st.sidebar:
             else:
                 st.caption("이후 예정된 예약이 없습니다.")
 
+# 사이드바 이용 중 섹션 내부
+if not occ.empty:
+    current_user = occ.iloc[0]
+    end_dt = datetime.combine(now_kst.date(), datetime.strptime(current_user['종료'], "%H:%M").time())
+    
+    # 종료 10분 전인지 확인
+    is_imminent = (end_dt - timedelta(minutes=10)) <= now_kst < end_dt
+    
+    if is_imminent:
+        st.warning("🔔 이용 종료 10분 전입니다! 다음 팀을 위해 정돈 부탁드립니다.")
+
 # --- [4. 메인 화면 구성] ---
 st.title("🌿 생명과학대학 스터디룸 예약")
 tabs = st.tabs(["📅 예약 신청", "🔍 내 예약 확인", "📋 전체 일정", "➕ 시간 연장", "♻️ 반납 및 취소"])
@@ -313,6 +324,7 @@ with st.expander("🛠️ 관리자 전용 메뉴"):
                 st.rerun()
         else:
             st.info("현재 관리할 예약 내역이 없습니다.")
+
 
 
 

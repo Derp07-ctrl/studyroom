@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 # 데이터 저장 파일명
 DB_FILE = "reservations.csv"
 
-# --- [1. 핵심 함수 정의] 모든 실행 로직보다 위에 있어야 배포 에러가 나지 않습니다 ---
+# --- [1. 핵심 함수 정의] 배포 시 NameError 방지를 위해 최상단에 배치 ---
 
 def get_latest_df():
     """데이터 파일을 읽어오는 함수"""
@@ -99,7 +99,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- [3. 데이터 로드 및 전처리] ---
+# --- [3. 초기 데이터 로드 및 전처리] ---
 time_options = [f"{h:02d}:{m:02d}" for h in range(0, 24) for m in (0, 30)]
 dept_options = ["스마트팜과학과", "식품생명공학과", "유전생명공학과", "융합바이오·신소재공학과"]
 now = datetime.now()
@@ -131,7 +131,7 @@ with st.sidebar:
     st.markdown("### 📜 이용 수칙")
     st.caption("1. 최소 예약 인원은 3명입니다.")
     st.caption("2. 시작 15분 내 QR 체크인 필수 (미인증 시 자동 취소)")
-    st.caption("3. 음식물 취식 금지 및 소등 필수")
+    st.caption("3. 스터디룸 내 음식물 취식 금지 및 소등 필수")
     st.caption("🌿 생명과학대학 학생회")
 
 # --- [5. 메인 화면 구성] ---
@@ -145,7 +145,6 @@ with tabs[0]:
     dept = c1.selectbox("🏢 학과", dept_options, key="reg_dept")
     name = c2.text_input("👤 이름", placeholder="성함", key="reg_name")
     sid = c3.text_input("🆔 학번", placeholder="8자리 학번", key="reg_sid")
-    # 최소 인원 3명 설정
     count = c4.number_input("👥 인원 (최소 3명)", min_value=1, max_value=20, value=3)
 
     st.markdown('<div class="step-header">2. 스터디룸 및 시간 선택</div>', unsafe_allow_html=True)
@@ -195,7 +194,7 @@ with tabs[1]:
             start_dt_str = f"{r['날짜'].replace('-', '')}T{r['시작'].replace(':', '')}00"
             end_dt_str = f"{r['날짜'].replace('-', '')}T{r['종료'].replace(':', '')}00"
             g_link = f"https://www.google.com/calendar/render?action=TEMPLATE&text={urllib.parse.quote(r['방번호'] + ' 예약')}&dates={start_dt_str}/{end_dt_str}&location={urllib.parse.quote(r['방번호'])}"
-            st.link_button("📅 구글 캘린더에 추가", g_link)
+            st.link_button("📅 구글 캘린더에 추가 (알람용)", g_link)
         else: st.error("조회된 예약 내역이 없습니다.")
 
 with tabs[2]:
@@ -213,18 +212,55 @@ with tabs[2]:
                 else:
                     for _, row in r_df.iterrows():
                         st.markdown(f'<div class="schedule-card">{row["시작"]}~{row["종료"]} | {row["이름"]} ({row["출석"]})</div>', unsafe_allow_html=True)
+    else: st.info("데이터가 없습니다.")
 
 with tabs[3]:
     st.markdown('<div class="step-header">➕ 이용 시간 연장</div>', unsafe_allow_html=True)
-    # 연장 로직 생략 (기존과 동일하게 구현 가능)
+    e_name = st.text_input("이름 입력 (연장)", key="ext_name")
+    if st.button("연장 가능 여부 확인"):
+        res_e = df_all[(df_all["이름"] == e_name) & (df_all["날짜"] == str(now.date()))]
+        if not res_e.empty:
+            target = res_e.iloc[-1]
+            end_dt = datetime.combine(now.date(), datetime.strptime(target['종료'], "%H:%M").time())
+            if (end_dt - timedelta(minutes=30)) <= now < end_dt:
+                st.session_state['ext_target'] = target
+                st.success(f"현재 종료 시각: {target['종료']}. 연장 가능합니다.")
+            else: st.warning(f"종료 30분 전부터 가능합니다. (현재 종료: {target['종료']})")
+        else: st.error("오늘 예약 내역이 없습니다.")
+    
+    if 'ext_target' in st.session_state:
+        target = st.session_state['ext_target']
+        new_en = st.selectbox("새 종료 시각", time_options[time_options.index(target['종료'])+1:time_options.index(target['종료'])+5])
+        if st.button("연장 확정"):
+            if check_overlap(now.date(), target['종료'], new_en, target['방번호']): st.error("다음 예약과 겹칩니다.")
+            else:
+                df_up = get_latest_df()
+                idx = df_up[(df_up["이름"] == e_name) & (df_up["날짜"] == str(now.date())) & (df_up["시작"] == target['시작'])].index
+                df_up.loc[idx, "종료"] = new_en
+                df_up.to_csv(DB_FILE, index=False, encoding='utf-8-sig')
+                st.success("연장 완료!"); del st.session_state['ext_target']; st.rerun()
 
 with tabs[4]:
     st.markdown('<div class="step-header">♻️ 반납 및 취소</div>', unsafe_allow_html=True)
-    # 반납 로직 생략 (기존과 동일하게 구현 가능)
+    c_name = st.text_input("이름 입력 (취소)", key="can_name")
+    if st.button("예약 내역 조회"):
+        res_c = df_all[df_all["이름"] == c_name].sort_values(by="날짜")
+        if not res_c.empty:
+            st.session_state['can_target'] = res_c.iloc[0]
+            t = st.session_state['can_target']
+            st.info(f"대상: {t['날짜']} {t['방번호']} ({t['시작']}~{t['종료']})")
+        else: st.error("등록된 예약 내역이 없습니다.")
+    
+    if 'can_target' in st.session_state:
+        if st.button("✅ 최종 취소/반납", type="primary"):
+            df_del = get_latest_df()
+            t = st.session_state['can_target']
+            df_del.drop(df_del[(df_del["이름"]==t["이름"]) & (df_del["학번"]==t["학번"]) & (df_del["날짜"]==t["날짜"]) & (df_del["시작"]==t["시작"])].index).to_csv(DB_FILE, index=False, encoding='utf-8-sig')
+            st.success("처리 완료"); del st.session_state['can_target']; st.rerun()
 
 # --- [6. 관리자 메뉴] ---
 st.markdown('<div style="height:100px;"></div>', unsafe_allow_html=True)
-with st.expander("🛠️ 관리자 전용 메뉴"):
+with st.expander("🛠️ 관리자 전용 메뉴 (데이터 관리)"):
     pw = st.text_input("Admin Password", type="password")
     if pw == "bio1234":
         df_ad = get_latest_df()
@@ -235,9 +271,8 @@ with st.expander("🛠️ 관리자 전용 메뉴"):
             if st.button("❌ 선택한 예약 강제 삭제", type="primary"):
                 df_ad = df_ad[df_ad['label'] != target]
                 df_ad.drop(columns=['label']).to_csv(DB_FILE, index=False, encoding='utf-8-sig')
-                st.success("성공적으로 삭제되었습니다.")
-                st.rerun()
+                st.success("삭제되었습니다."); st.rerun()
             st.divider()
-            st.dataframe(df_ad.drop(columns=['label']))
+            st.dataframe(df_ad.drop(columns=['label']), use_container_width=True)
             csv = df_ad.drop(columns=['label']).to_csv(index=False, encoding='utf-8-sig').encode('utf-8-sig')
-            st.download_button("📥 전체 내역 다운로드", data=csv, file_name="all_reservations.csv", mime="text/csv")
+            st.download_button("📥 전체 내역 다운로드 (CSV)", data=csv, file_name="all_reservations.csv", mime="text/csv")

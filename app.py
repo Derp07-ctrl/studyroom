@@ -223,3 +223,21 @@ with st.expander("🛠️ 관리자 전용 메뉴"):
                 df_ad = df_ad[df_ad['label'] != target_l]
                 df_ad.drop(columns=['label']).to_csv(DB_FILE, index=False, encoding='utf-8-sig')
                 st.rerun()
+# --- 사이드바: 실시간 현황판 ---
+with st.sidebar:
+    st.markdown("<h2 style='color:#3E7D6B;'>📊 실시간 점유 현황</h2>", unsafe_allow_html=True)
+    today_df = df_all[df_all["날짜"] == str(now.date())].sort_values(by="시작")
+    
+    for r in ["1번 스터디룸", "2번 스터디룸"]:
+        with st.expander(f"🚪 {r}", expanded=True):
+            room_res = today_df[today_df["방번호"] == r]
+            is_occ = False
+            for _, row in room_res.iterrows():
+                if datetime.strptime(row["시작"], "%H:%M").time() <= now.time() < datetime.strptime(row["종료"], "%H:%M").time():
+                    is_occ = True
+                    status = "✅ 입실완료" if row["출석"] == "입실완료" else "⚠️ 미인증(곧 자동취소)"
+                    st.error(f"{status} ({row['시작']}~{row['종료']})")
+                    break
+            if not is_occ: st.success("✅ 예약 가능")
+    st.divider()
+    st.caption("🌿 생명과학대학 학생회")

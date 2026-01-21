@@ -128,7 +128,7 @@ with st.sidebar:
                 current_user = occ.iloc[0]
                 status_text = "✅ 현재 사용 중" if current_user["출석"] == "입실완료" else "⚠️ 인증 대기 중"
                 st.error(status_text)
-                st.markdown(f"**{current_user['이름']}님 팀**")
+                st.markdown(f"**{current_user['이름']} 팀**")
                 st.caption(f"⏰ {current_user['시작']} ~ {current_user['종료']}")
                 if current_user["출석"] == "미입실":
                     st.warning("❗ 15분 내 QR 재인증 필요")
@@ -256,6 +256,7 @@ with st.expander("🛠️ 관리자"):
                 t = df_ad.iloc[sel]
                 df_ad.drop(df_ad[(df_ad["이름"] == t["이름"]) & (df_ad["학번"] == t["학번"]) & (df_ad["날짜"] == t["날짜"]) & (df_ad["시작"] == t["시작"])].index).to_csv(DB_FILE, index=False, encoding='utf-8-sig')
                 st.rerun()
+
 
 
 

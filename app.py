@@ -207,7 +207,7 @@ with tabs[0]:
                 <div style="margin-top: 15px; font-size: 0.85rem; opacity: 0.8;">※ 입실 15분 내 QR 체크인 필수 (미인증 시 자동 취소)</div>
             </div>
         """, unsafe_allow_html=True)
-        if st.button("새로운 예약 신청하기"):
+        if st.button("새로고침"):
             st.session_state.reserve_success = False
             st.rerun()
 
@@ -267,8 +267,22 @@ with tabs[4]:
             df_del.drop(df_del[(df_del["이름"] == t["이름"]) & (df_del["학번"] == t["학번"]) & (df_del["날짜"] == t["날짜"]) & (df_del["시작"] == t["시작"])].index).to_csv(DB_FILE, index=False, encoding='utf-8-sig')
             del st.session_state['cancel_list']; st.rerun()
 
-with st.expander("🛠️ 관리자"):
-    pw = st.text_input("PW", type="password", key="admin_pw")
+# --- [5. 관리자 메뉴] ---
+st.markdown('<div style="height:100px;"></div>', unsafe_allow_html=True)
+with st.expander("🛠️ 관리자 전용 메뉴"):
+    pw = st.text_input("관리자 비밀번호", type="password", key="admin_pw")
     if pw == "bio1234":
         df_ad = get_latest_df()
-        st.dataframe(df_ad, use_container_width=True)
+        if not df_ad.empty:
+            st.dataframe(df_ad, use_container_width=True)
+            labels = [f"{r['이름']} | {r['날짜']} | {r['시작']} ({r['방번호']})" for _, r in df_ad.iterrows()]
+            sel = st.selectbox("강제 삭제할 대상을 선택하세요", range(len(labels)), format_func=lambda x: labels[x])
+            if st.button("퇴실/삭제"):
+                t = df_ad.iloc[sel]
+                df_ad = df_ad.drop(df_ad[(df_ad["이름"] == t["이름"]) & (df_ad["학번"] == t["학번"]) & (df_ad["날짜"] == t["날짜"]) & (df_ad["시작"] == t["시작"])].index)
+                df_ad.to_csv(DB_FILE, index=False, encoding='utf-8-sig')
+                st.success("관리자 권한으로 강제 삭제되었습니다.")
+                st.rerun()
+        else:
+            st.info("현재 관리할 예약 내역이 없습니다.")
+

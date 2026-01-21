@@ -87,7 +87,6 @@ st.markdown("""
     """, unsafe_allow_html=True)
 
 now = datetime.now()
-time_options = [f"{h:02d}:{m:02d}" for h in range(0, 24) for m in (0, 30)]
 dept_options = ["스마트팜과학과", "식품생명공학과", "유전생명공학과", "융합바이오·신소재공학과"]
 
 df_all = get_latest_df()
@@ -100,37 +99,47 @@ st.title("🌿 생명과학대학 스터디룸 예약 시스템")
 tabs = st.tabs(["📅 예약 신청", "🔍 내 예약 확인", "📋 전체 일정", "➕ 연장", "♻️ 반납"])
 
 with tabs[0]:
-    # --- 현재 시간과 가장 가까운 예약 가능 시간 계산 ---
-    if now.minute < 30:
-        suggested_start = now.replace(minute=30, second=0, microsecond=0)
+    # --- 날짜 선택 ---
+    st.markdown('<div class="step-header">1. 예약 날짜 및 스터디룸 선택</div>', unsafe_allow_html=True)
+    c_date, c_room = st.columns(2)
+    selected_date = c_date.date_input("📅 날짜", min_value=now.date(), max_value=now.date()+timedelta(days=13))
+    selected_room = c_room.selectbox("🚪 스터디룸", ["1번 스터디룸", "2번 스터디룸"])
+
+    # --- 시간 옵션 생성 (오늘인 경우 지나간 시간 제외) ---
+    all_times = [f"{h:02d}:{m:02d}" for h in range(0, 24) for m in (0, 30)]
+    
+    if selected_date == now.date():
+        # 오늘이면 현재 시간 이후의 옵션만 필터링
+        available_times = [t for t in all_times if t > now.strftime("%H:%M")]
     else:
-        suggested_start = (now + timedelta(hours=1)).replace(minute=0, second=0, microsecond=0)
-    
-    start_str = suggested_start.strftime("%H:%M")
-    end_str = (suggested_start + timedelta(hours=1)).strftime("%H:%M")
-    
-    try:
-        s_idx = time_options.index(start_str)
-        e_idx = time_options.index(end_str)
-    except:
-        s_idx, e_idx = 18, 20
+        available_times = all_times
 
-    st.markdown('<div class="step-header">1. 예약자 정보 입력</div>', unsafe_allow_html=True)
-    c1, c2, c3, c4 = st.columns(4)
-    dept = c1.selectbox("🏢 학과", dept_options, key="reg_dept")
-    name = c2.text_input("👤 이름", placeholder="성함", key="reg_name")
-    sid = c3.text_input("🆔 학번", placeholder="8자리 학번", key="reg_sid")
-    count = c4.number_input("👥 인원 (최소 3명)", min_value=1, max_value=20, value=3)
+    # --- 시작 시간 자동 설정 (가장 가까운 시간) ---
+    if not available_times:
+        st.error("⚠️ 오늘은 더 이상 예약 가능한 시간이 없습니다.")
+        s_idx = 0
+    else:
+        s_idx = 0 # 필터링된 리스트의 첫 번째가 가장 가까운 시간
 
-    st.markdown('<div class="step-header">2. 스터디룸 및 시간 선택 (최대 3시간)</div>', unsafe_allow_html=True)
-    sc1, sc2, tc1, tc2 = st.columns([2, 1, 1, 1])
-    room = sc1.selectbox("🚪 스터디룸", ["1번 스터디룸", "2번 스터디룸"], key="reg_room")
-    date = sc2.date_input("📅 날짜", min_value=now.date(), max_value=now.date()+timedelta(days=13))
-    st_t = tc1.selectbox("⏰ 시작", time_options, index=s_idx)
-    en_t = tc2.selectbox("⏰ 종료", time_options, index=e_idx)
+    st.markdown('<div class="step-header">2. 시간 선택 (최대 3시간)</div>', unsafe_allow_html=True)
+    tc1, tc2 = st.columns(2)
+    
+    # 시간 선택 시 available_times가 비어있으면 빈 리스트 대신 에러 방지용 값 처리
+    display_times = available_times if available_times else ["00:00"]
+    st_t = tc1.selectbox("⏰ 시작 시간", display_times, index=s_idx)
+    
+    # 종료 시간은 시작 시간 이후의 모든 시간 옵션 (전체 리스트에서 추출)
+    en_options = [t for t in all_times if t > st_t]
+    en_t = tc2.selectbox("⏰ 종료 시간", en_options, index=min(1, len(en_options)-1))
+
+    st.markdown('<div class="step-header">3. 예약자 정보 입력</div>', unsafe_allow_html=True)
+    inf1, inf2, inf3, inf4 = st.columns(4)
+    dept = inf1.selectbox("🏢 학과", dept_options)
+    name = inf2.text_input("👤 이름", placeholder="성함")
+    sid = inf3.text_input("🆔 학번", placeholder="8자리 학번")
+    count = inf4.number_input("👥 인원 (최소 3명)", min_value=1, max_value=20, value=3)
 
     if st.button("🚀 예약 신청하기"):
-        # 시간 차이 계산 (3시간 제한)
         t_fmt = "%H:%M"
         t1 = datetime.strptime(st_t, t_fmt)
         t2 = datetime.strptime(en_t, t_fmt)
@@ -142,21 +151,18 @@ with tabs[0]:
             st.error("🚫 최소 인원은 3명입니다.")
         elif is_already_booked(name, sid):
             st.error("🚫 이미 등록된 예약이 존재합니다.")
-        elif st_t >= en_t:
-            st.error("시간 설정 오류")
         elif duration > timedelta(hours=3):
-            st.error("🚫 스터디룸은 최대 3시간까지만 예약 가능합니다.")
-        elif check_overlap(date, st_t, en_t, room):
+            st.error("🚫 최대 3시간까지만 예약 가능합니다.")
+        elif check_overlap(selected_date, st_t, en_t, selected_room):
             st.error("❌ 이미 예약된 시간입니다.")
         else:
-            new_row = pd.DataFrame([[dept, name.strip(), sid.strip(), count, str(date), st_t, en_t, room, "미입실"]], 
+            new_row = pd.DataFrame([[dept, name.strip(), sid.strip(), count, str(selected_date), st_t, en_t, selected_room, "미입실"]], 
                                     columns=["학과", "이름", "학번", "인원", "날짜", "시작", "종료", "방번호", "출석"])
             new_row.to_csv(DB_FILE, mode='a', header=not os.path.exists(DB_FILE), index=False, encoding='utf-8-sig')
-            
-            st.markdown(f"""<div class="success-box"><h3>예약 완료!</h3><p>📍 {room} | 📅 {date} | ⏰ {st_t}~{en_t}</p></div>""", unsafe_allow_html=True)
+            st.success(f"🎉 예약 완료! {st_t} ~ {en_t}")
             st.rerun()
 
-# [사이드바 및 기타 탭 로직은 이전과 동일]
+# [사이드바 및 기타 탭 로직]
 with st.sidebar:
     st.markdown("<h2 style='color:#3E7D6B;'>📊 실시간 점유 현황</h2>", unsafe_allow_html=True)
     today_df = df_all[df_all["날짜"] == str(now.date())].sort_values(by="시작")
@@ -199,11 +205,11 @@ with tabs[2]:
 
 with tabs[3]:
     st.markdown('<div class="step-header">➕ 연장</div>', unsafe_allow_html=True)
-    # 연장 로직 (생략 - 이전과 동일)
+    # 연장 로직 (기존과 동일)
 
 with tabs[4]:
     st.markdown('<div class="step-header">♻️ 반납</div>', unsafe_allow_html=True)
-    # 반납 로직 (생략 - 이전과 동일)
+    # 반납 로직 (기존과 동일)
 
 with st.expander("🛠️ 관리자 전용 메뉴"):
     pw = st.text_input("PW", type="password")

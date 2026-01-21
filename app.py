@@ -231,25 +231,57 @@ with tabs[2]:
     else: st.info("데이터 없음")
 
 with tabs[3]:
+    st.markdown('<div class="step-header">➕ 이용 시간 연장</div>', unsafe_allow_html=True)
     en_n, en_id = st.text_input("이름 (연장)", key="ext_n"), st.text_input("학번 (연장)", key="ext_id")
-    if st.button("연장 확인", key="btn_ext_check"):
-        res_e = df_all[(df_all["이름"] == en_n.strip()) & (df_all["학번"] == en_id.strip()) & (df_all["날짜"] == str(now_kst.date()))]
+    
+    if st.button("연장 가능 여부 확인", key="btn_ext_check"):
+        df_e = get_latest_df()
+        # 오늘 날짜의 해당 사용자 예약 내역 조회
+        res_e = df_e[(df_e["이름"] == en_n.strip()) & (df_e["학번"] == en_id.strip()) & (df_e["날짜"] == str(now_kst.date()))]
+        
         if not res_e.empty:
             target = res_e.iloc[-1]
-            end_dt = datetime.combine(now_kst.date(), datetime.strptime(target['종료'], "%H:%M").time())
-            if (end_dt - timedelta(minutes=30)) <= now_kst < end_dt:
-                st.session_state['ext_target'] = target
-                st.success("연장 가능합니다.")
-            else: st.warning("연장은 종료 30분 전부터 가능합니다.")
+            
+            # [수정] QR 인증 여부 확인 로직 추가
+            if target["출석"] != "입실완료":
+                st.error("🚫 먼저 QR 인증을 통해 입실 확인을 해주세요. 미인증 상태에서는 연장이 불가능합니다.")
+            else:
+                # 인증된 경우에만 시간 조건 확인
+                end_dt = datetime.combine(now_kst.date(), datetime.strptime(target['종료'], "%H:%M").time())
+                
+                # 종료 30분 전부터 종료 시각까지만 연장 신청 가능
+                if (end_dt - timedelta(minutes=30)) <= now_kst < end_dt:
+                    st.session_state['ext_target'] = target
+                    st.success(f"✅ 연장 가능합니다. (현재 종료 시각: {target['종료']})")
+                else:
+                    st.warning("⚠️ 연장은 이용 종료 30분 전부터 종료 시각까지만 가능합니다.")
+        else:
+            st.error("🔍 오늘 날짜로 예약된 내역을 찾을 수 없습니다.")
+
+    # 연장 가능 상태일 때만 입력창 표시
     if 'ext_target' in st.session_state:
         target = st.session_state['ext_target']
-        new_en = st.selectbox("새 종료 시각", [t for t in time_options_all if t > target['종료']][:4], key="ext_sel")
-        if st.button("최종 연장 확정"):
-            df_up = get_latest_df()
-            idx = df_up[(df_up["이름"] == en_n.strip()) & (df_up["학번"] == en_id.strip()) & (df_up["시작"] == target['시작'])].index
-            df_up.loc[idx, "종료"] = new_en; df_up.loc[idx, "출석"] = "미입실"
-            df_up.to_csv(DB_FILE, index=False, encoding='utf-8-sig'); st.success("연장 완료! QR 재인증 필수"); del st.session_state['ext_target']; st.rerun()
-
+        
+        # 다음 예약과의 충돌을 피하기 위해 최대 30분~2시간(4슬롯)까지만 선택 가능하도록 제한
+        new_en_options = [t for t in time_options_all if t > target['종료']][:4]
+        
+        if not new_en_options:
+            st.warning("이후 시간에 이미 예약이 있어 연장이 불가능합니다.")
+        else:
+            new_en = st.selectbox("새로운 종료 시각 선택", new_en_options, key="ext_sel")
+            
+            if st.button("최종 연장 확정", key="btn_ext_confirm"):
+                df_up = get_latest_df()
+                # 해당 예약의 인덱스 찾아 종료 시간 업데이트
+                idx = df_up[(df_up["이름"] == en_n.strip()) & (df_up["학번"] == en_id.strip()) & (df_up["시작"] == target['시작'])].index
+                
+                # [참고] 연장 시에는 다시 '미입실'로 돌리지 않고 '입실완료'를 유지하여 추가 인증 번거로움을 제거함
+                df_up.loc[idx, "종료"] = new_en
+                df_up.to_csv(DB_FILE, index=False, encoding='utf-8-sig')
+                
+                st.success(f"✨ 연장이 완료되었습니다! 새로운 종료 시간은 {new_en}입니다.")
+                del st.session_state['ext_target']
+                st.rerun()
 with tabs[4]:
     can_n, can_id = st.text_input("이름 (취소)", key="can_n"), st.text_input("학번 (취소)", key="can_id")
     if st.button("조회", key="btn_can_lookup"):
@@ -281,6 +313,7 @@ with st.expander("🛠️ 관리자 전용 메뉴"):
                 st.rerun()
         else:
             st.info("현재 관리할 예약 내역이 없습니다.")
+
 
 
 

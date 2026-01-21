@@ -147,7 +147,6 @@ st.title("🌿 생명과학대학 스터디룸 예약")
 tabs = st.tabs(["📅 예약 신청", "🔍 내 예약 확인", "📋 전체 예약 일정", "➕ 시간 연장", "♻️ 반납 및 취소"])
 
 with tabs[0]:
-    # 예약 성공 상태를 유지하기 위한 세션 상태 초기화
     if 'reserve_success' not in st.session_state:
         st.session_state.reserve_success = False
         st.session_state.last_res = {}
@@ -157,10 +156,13 @@ with tabs[0]:
         c1, c2, c3, c4 = st.columns(4)
         dept = c1.selectbox("🏢 학과", ["스마트팜과학과", "식품생명공학과", "유전생명공학과", "융합바이오·신소재공학과"], key="reg_dept")
         name = c2.text_input("👤 이름", key="reg_name")
-        sid = c3.text_input("🆔 학번", key="reg_sid")
+        
+        # --- [디테일: 학번 입력 제한] ---
+        # max_chars=8로 8칸 제한, help로 안내문 제공
+        sid = c3.text_input("🆔 학번 (8자리 숫자만)", key="reg_sid", max_chars=8, placeholder="예: 20241234")
         count = c4.number_input("👥 인원 (최소 3명)", min_value=3, value=3, key="reg_count")
-
-# 유효성 검사 (숫자인지 && 8자리인지)
+        
+        # 유효성 검사 (숫자인지 && 8자리인지)
         is_sid_valid = sid.isdigit() and len(sid) == 8
         
         if sid:
@@ -168,7 +170,7 @@ with tabs[0]:
                 st.caption("❌ **숫자만** 입력 가능합니다.")
             elif len(sid) < 8:
                 st.caption(f"⚠️ 현재 {len(sid)}자 / **8자리를 모두 입력해주세요.**")
-        
+
         st.markdown('<div class="step-header">2. 장소 및 시간 선택</div>', unsafe_allow_html=True)
         sc1, sc2, tc1, tc2 = st.columns([2, 1, 1, 1])
         room = sc1.selectbox("🚪 장소", ["1번 스터디룸", "2번 스터디룸"], key="reg_room")
@@ -180,42 +182,39 @@ with tabs[0]:
         threshold_time = (now_kst - timedelta(minutes=15)).strftime("%H:%M")
         available_start = [t for t in time_options_all if t >= threshold_time] if str(date) == str(now_kst.date()) else time_options_all
         
-        if not available_start: st.error("⚠️ 오늘은 더 이상 예약 가능한 시간이 없습니다.")
+        if not available_start: st.error("⚠️ 오늘은 예약 가능한 시간이 없습니다.")
         else:
             st_t = tc1.selectbox("⏰ 시작", available_start, key="reg_start")
             en_t = tc2.selectbox("⏰ 종료", [t for t in time_options_all if t > st_t], key="reg_end")
             
-            if st.button("🚀 예약 신청", key="btn_reservation"):
-                start_dt = datetime.strptime(st_t, "%H:%M")
-                end_dt = datetime.strptime(en_t, "%H:%M")
-                duration = end_dt - start_dt
-                
-                if not (name.strip() and sid.strip()): st.error("⚠️ 이름과 학번을 모두 입력해 주세요.")
-                elif duration > timedelta(hours=3): st.error("🚫 최대 이용 가능 시간은 3시간입니다.")
+            # [수정] 모든 조건이 충족되어야 버튼 활성화
+            submit_disabled = not (name.strip() and is_sid_valid)
+            
+            if st.button("🚀 예약 신청", key="btn_reservation", disabled=submit_disabled):
+                duration = datetime.strptime(en_t, "%H:%M") - datetime.strptime(st_t, "%H:%M")
+                if duration > timedelta(hours=3): st.error("🚫 최대 이용 가능 시간은 3시간입니다.")
                 elif is_already_booked(name, sid): st.error("🚫 이미 등록된 예약 내역이 존재합니다.")
                 elif check_overlap(date, st_t, en_t, room): st.error("❌ 이미 예약된 시간입니다.")
                 else:
-                    # 데이터 저장
                     new_data = [dept, name.strip(), sid.strip(), count, str(date), st_t, en_t, room, "미입실"]
                     pd.DataFrame([new_data], columns=df_all.columns).to_csv(DB_FILE, mode='a', header=not os.path.exists(DB_FILE), index=False, encoding='utf-8-sig')
-                    
-                    # 성공 상태 저장 (영수증 표시용)
                     st.session_state.reserve_success = True
                     st.session_state.last_res = {"name": name, "sid": sid, "room": room, "date": str(date), "start": st_t, "end": en_t}
                     st.rerun()
     else:
-        # 예약 성공 시 영수증 화면
         res = st.session_state.last_res
-        st.success("🎉 예약이 성공적으로 완료되었습니다!")
+        st.success("🎉 예약이 완료되었습니다!")
         st.markdown(f"""
             <div class="success-receipt">
                 <div class="receipt-title">🌿 예약 확인서</div>
                 <div class="receipt-item"><span>신청자</span><b>{res['name']} ({res['sid']})</b></div>
                 <div class="receipt-item"><span>장소</span><b style="color: var(--point-color);">{res['room']}</b></div>
                 <div class="receipt-item"><span>시간</span><b>{res['date']} / {res['start']} ~ {res['end']}</b></div>
-                <div style="margin-top: 15px; font-size: 0.85rem; opacity: 0.8;">※ 입실 15분 내 QR 체크인 필수 (미인증 시 자동 취소)</div>
             </div>
         """, unsafe_allow_html=True)
+        if st.button("새로운 예약 신청하기"):
+            st.session_state.reserve_success = False
+            st.rerun()
         
 # [나머지 탭 동일]
 with tabs[1]:
@@ -323,6 +322,7 @@ with st.expander("🛠️ 관리자 전용 메뉴"):
                 st.rerun()
         else:
             st.info("현재 관리할 예약 내역이 없습니다.")
+
 
 
 

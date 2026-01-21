@@ -93,17 +93,10 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- [3. 초기 데이터 로드 및 시간 로직] ---
+# --- [3. 공통 데이터 및 시간 로직] ---
 now = datetime.now()
-time_options = [f"{h:02d}:{m:02d}" for h in range(0, 24) for m in (0, 30)]
+time_options_all = [f"{h:02d}:{m:02d}" for h in range(0, 24) for m in (0, 30)]
 dept_options = ["스마트팜과학과", "식품생명공학과", "유전생명공학과", "융합바이오·신소재공학과"]
-
-# 현재 시간 기준 가장 가까운 예약 시작 시간 계산 (지능형 추천)
-if now.minute < 30:
-    suggested_start_dt = now.replace(minute=30, second=0, microsecond=0)
-else:
-    suggested_start_dt = (now + timedelta(hours=1)).replace(minute=0, second=0, microsecond=0)
-suggested_start = suggested_start_dt.strftime("%H:%M")
 
 df_all = get_latest_df()
 df_all = auto_cleanup_noshow(df_all)
@@ -138,57 +131,65 @@ tabs = st.tabs(["📅 예약 신청", "🔍 내 예약 확인", "📋 전체 일
 
 # [탭 1: 예약 신청]
 with tabs[0]:
-    st.markdown('<div class="step-header">1. 예약자 정보 입력</div>', unsafe_allow_html=True)
-    c1, c2, c3, c4 = st.columns(4)
-    dept = c1.selectbox("🏢 학과", dept_options, key="reg_dept")
-    name = c2.text_input("👤 이름", placeholder="성함", key="reg_name")
-    sid = c3.text_input("🆔 학번", placeholder="8자리 학번", key="reg_sid")
-    count = c4.number_input("👥 인원 (최소 3명)", min_value=3, max_value=20, value=3, step=1)
+    st.markdown('<div class="step-header">1. 날짜 및 스터디룸 선택</div>', unsafe_allow_html=True)
+    c_date, c_room = st.columns(2)
+    date = c_date.date_input("📅 예약 날짜", min_value=now.date(), max_value=now.date()+timedelta(days=13), key="reg_date")
+    room = c_room.selectbox("🚪 스터디룸 선택", ["1번 스터디룸", "2번 스터디룸"], key="reg_room")
 
-    st.markdown('<div class="step-header">2. 스터디룸 및 시간 선택 (최대 3시간)</div>', unsafe_allow_html=True)
-    sc1, sc2, tc1, tc2 = st.columns([2, 1, 1, 1])
-    room = sc1.selectbox("🚪 스터디룸", ["1번 스터디룸", "2번 스터디룸"], key="reg_room")
-    date = sc2.date_input("📅 날짜", min_value=now.date(), max_value=now.date()+timedelta(days=13))
-    
-    # 오늘 날짜인 경우 지난 시간 필터링
-    available_times = time_options
+    # --- 실시간 시간 필터링 (지난 시간 차단) ---
     if date == now.date():
-        available_times = [t for t in time_options if t > now.strftime("%H:%M")]
-    
-    try:
-        start_index = available_times.index(suggested_start) if suggested_start in available_times else 0
-    except:
-        start_index = 0
-        
-    st_t = tc1.selectbox("⏰ 시작", available_times, index=start_index)
-    end_options = [t for t in time_options if t > st_t]
-    en_t = tc2.selectbox("⏰ 종료", end_options, index=min(1, len(end_options)-1))
+        current_time_str = now.strftime("%H:%M")
+        available_start_times = [t for t in time_options_all if t > current_time_str]
+    else:
+        available_start_times = time_options_all
 
-    if st.button("🚀 예약 신청하기"):
-        t_fmt = "%H:%M"
-        duration = datetime.strptime(en_t, t_fmt) - datetime.strptime(st_t, t_fmt)
+    if not available_start_times:
+        st.error("⚠️ 오늘은 더 이상 예약 가능한 시간대가 없습니다.")
+    else:
+        st.markdown('<div class="step-header">2. 시간 및 인원 설정 (최대 3시간)</div>', unsafe_allow_html=True)
+        tc1, tc2, tc3 = st.columns([1, 1, 2])
         
-        if not (name.strip() and sid.strip()):
-            st.error("이름과 학번을 입력해 주세요.")
-        elif is_already_booked(name, sid):
-            st.error("🚫 이미 등록된 예약이 존재합니다. (1인 1예약 원칙)")
-        elif duration > timedelta(hours=3):
-            st.error("🚫 최대 3시간까지만 예약 가능합니다.")
-        elif check_overlap(date, st_t, en_t, room):
-            st.error("❌ 선택하신 시간에 이미 예약이 있습니다.")
-        else:
-            new_row = pd.DataFrame([[dept, name.strip(), sid.strip(), count, str(date), st_t, en_t, room, "미입실"]], 
-                                    columns=["학과", "이름", "학번", "인원", "날짜", "시작", "종료", "방번호", "출석"])
-            new_row.to_csv(DB_FILE, mode='a', header=not os.path.exists(DB_FILE), index=False, encoding='utf-8-sig')
-            st.success(f"🎉 예약 완료! {st_t} ~ {en_t}")
-            st.rerun()
+        # 시작 시간: 목록의 첫 번째가 현재와 가장 가까운 시간으로 자동 선택됨
+        st_t = tc1.selectbox("⏰ 시작 시간", available_start_times, index=0)
+        
+        # 종료 시간: 시작 시간 이후만 표시
+        end_options = [t for t in time_options_all if t > st_t]
+        en_t = tc2.selectbox("⏰ 종료 시간", end_options, index=min(1, len(end_options)-1))
+        
+        # 인원 선택: 최소 3명으로 고정 (1, 2 선택 불가)
+        count = tc3.number_input("👥 인원 (최소 3명)", min_value=3, max_value=20, value=3, step=1)
+
+        st.markdown('<div class="step-header">3. 예약자 정보</div>', unsafe_allow_html=True)
+        inf1, inf2, inf3 = st.columns(3)
+        dept = inf1.selectbox("🏢 학과", dept_options)
+        name = inf2.text_input("👤 이름", placeholder="성함")
+        sid = inf3.text_input("🆔 학번", placeholder="8자리 학번")
+
+        if st.button("🚀 예약 신청하기"):
+            t_fmt = "%H:%M"
+            duration = datetime.strptime(en_t, t_fmt) - datetime.strptime(st_t, t_fmt)
+            
+            if not (name.strip() and sid.strip()):
+                st.error("이름과 학번을 모두 입력해 주세요.")
+            elif is_already_booked(name, sid):
+                st.error("🚫 이미 등록된 예약이 존재합니다. (1인 1예약 원칙)")
+            elif duration > timedelta(hours=3):
+                st.error("🚫 최대 이용 가능 시간은 3시간입니다.")
+            elif check_overlap(date, st_t, en_t, room):
+                st.error("❌ 선택하신 시간에 이미 예약이 있습니다.")
+            else:
+                new_row = pd.DataFrame([[dept, name.strip(), sid.strip(), count, str(date), st_t, en_t, room, "미입실"]], 
+                                        columns=["학과", "이름", "학번", "인원", "날짜", "시작", "종료", "방번호", "출석"])
+                new_row.to_csv(DB_FILE, mode='a', header=not os.path.exists(DB_FILE), index=False, encoding='utf-8-sig')
+                st.success(f"🎉 예약 완료! {st_t} ~ {en_t}")
+                st.rerun()
 
 # [탭 2: 내 예약 확인]
 with tabs[1]:
     st.markdown('<div class="step-header">🔍 내 예약 확인</div>', unsafe_allow_html=True)
     mc1, mc2 = st.columns(2)
-    m_name = mc1.text_input("조회용 이름", key="my_name")
-    m_sid = mc2.text_input("조회용 학번", key="my_sid")
+    m_name = mc1.text_input("이름", key="my_name")
+    m_sid = mc2.text_input("학번", key="my_sid")
     if st.button("조회"):
         res = df_all[(df_all["이름"] == m_name.strip()) & (df_all["학번"].astype(str) == m_sid.strip())]
         if not res.empty:
@@ -198,7 +199,7 @@ with tabs[1]:
 
 # [탭 3: 전체 일정 보기]
 with tabs[2]:
-    st.markdown('<div class="step-header">📋 통합 일정</div>', unsafe_allow_html=True)
+    st.markdown('<div class="step-header">📋 통합 일정 확인</div>', unsafe_allow_html=True)
     if not df_all.empty:
         u_dates = sorted(df_all["날짜"].unique())
         s_date = st.selectbox("날짜 선택", u_dates)
@@ -215,18 +216,16 @@ with tabs[3]:
         res_e = df_e[(df_e["이름"] == ext_name) & (df_e["날짜"] == str(now.date()))]
         if not res_e.empty:
             target = res_e.iloc[-1]
-            try:
-                end_dt = datetime.combine(now.date(), datetime.strptime(target['종료'], "%H:%M").time())
-                if (end_dt - timedelta(minutes=30)) <= now < end_dt:
-                    st.session_state['ext_target'] = target
-                    st.success(f"현재 이용 중인 [{target['방번호']}] 예약 연장 가능! (현재 종료: {target['종료']})")
-                else: st.warning(f"연장은 종료 30분 전부터 가능합니다. (현재 종료: {target['종료']})")
-            except: pass
-        else: st.error("오늘 이용 중인 내역이 없습니다.")
+            end_dt = datetime.combine(now.date(), datetime.strptime(target['종료'], "%H:%M").time())
+            if (end_dt - timedelta(minutes=30)) <= now < end_dt:
+                st.session_state['ext_target'] = target
+                st.success(f"현재 종료 시각: {target['종료']}. 연장 가능합니다.")
+            else: st.warning(f"연장은 종료 30분 전부터 종료 시각까지만 가능합니다.")
+        else: st.error("오늘 예약 내역이 없습니다.")
     
     if 'ext_target' in st.session_state:
         target = st.session_state['ext_target']
-        new_en_opts = [t for t in time_options if t > target['종료']]
+        new_en_opts = [t for t in time_options_all if t > target['종료']]
         new_en = st.selectbox("새로운 종료 시각", new_en_opts[:4])
         if st.button("연장 확정"):
             if check_overlap(now.date(), target['종료'], new_en, target['방번호']): st.error("다음 예약과 겹칩니다.")
@@ -241,25 +240,24 @@ with tabs[3]:
 with tabs[4]:
     st.markdown('<div class="step-header">♻️ 예약 반납 및 취소</div>', unsafe_allow_html=True)
     can_name = st.text_input("대표자 이름 (취소)", key="can_n")
-    if st.button("취소 가능 내역 조회"):
-        df_c = get_latest_df()
-        res_c = df_c[df_c["이름"] == can_name].sort_values(by="날짜")
+    if st.button("조회"):
+        res_c = df_all[df_all["이름"] == can_name].sort_values(by="날짜")
         if not res_c.empty:
             st.session_state['re_target'] = res_c.iloc[0]
             t = st.session_state['re_target']
             st.info(f"선택됨: {t['날짜']} {t['방번호']} ({t['시작']}~{t['종료']})")
-        else: st.error("등록된 예약 내역이 없습니다.")
+        else: st.error("내역이 없습니다.")
 
     if 're_target' in st.session_state:
-        if st.button("✅ 최종 취소/반납 처리", type="primary"):
+        if st.button("✅ 최종 취소/반납", type="primary"):
             df_del = get_latest_df()
             t = st.session_state['re_target']
             df_del.drop(df_del[(df_del["이름"]==t["이름"]) & (df_del["학번"]==str(t["학번"])) & (df_del["날짜"]==t["날짜"]) & (df_del["시작"]==t["시작"])].index).to_csv(DB_FILE, index=False, encoding='utf-8-sig')
             st.success("취소 완료"); del st.session_state['re_target']; st.rerun()
 
-# --- [6. 관리자 전용 메뉴] ---
+# --- [6. 관리자 메뉴] ---
 st.markdown('<div style="height:100px;"></div>', unsafe_allow_html=True)
-with st.expander("🛠️ 관리자 전용 메뉴"):
+with st.expander("🛠️ 관리자 전용 메뉴 (예약 삭제)"):
     pw = st.text_input("Admin Password", type="password")
     if pw == "bio1234":
         df_ad = get_latest_df()
@@ -267,7 +265,7 @@ with st.expander("🛠️ 관리자 전용 메뉴"):
             st.markdown("### 🗑️ 개별 예약 삭제")
             df_ad['label'] = df_ad['이름'] + " | " + df_ad['날짜'] + " | " + df_ad['시작'] + " (" + df_ad['방번호'] + ")"
             target_l = st.selectbox("삭제 대상을 선택하세요", df_ad['label'].tolist())
-            if st.button("❌ 선택 예약 삭제", type="primary"):
+            if st.button("❌ 선택한 예약 강제 삭제", type="primary"):
                 df_ad = df_ad[df_ad['label'] != target_l]
                 df_ad.drop(columns=['label']).to_csv(DB_FILE, index=False, encoding='utf-8-sig')
                 st.success("삭제되었습니다."); st.rerun()

@@ -113,7 +113,7 @@ with st.sidebar:
     
     for r in ["1번 스터디룸", "2번 스터디룸"]:
         with st.expander(f"🚪 {r}", expanded=True):
-            # 해당 방의 오늘 전체 일정 (시작 시간 순 정렬)
+            # 해당 방의 오늘 전체 일정
             room_today = today_res[today_res["방번호"] == r].sort_values(by="시작")
             
             # 1. 현재 사용 중인 팀 찾기 (현재 시간에 걸쳐 있거나, 입실완료 상태인 경우)
@@ -125,27 +125,28 @@ with st.sidebar:
                 status_color = "green" if current_user["출석"] == "입실완료" else "orange"
                 status_text = "이용 중" if current_user["출석"] == "입실완료" else "인증 대기"
                 
-                # 현재 사용 팀 정보 표시
+                # 현재 사용 팀 정보 표시 (강조)
                 st.markdown(f"### <span style='color:{status_color};'>{status_text}</span>", unsafe_allow_html=True)
-                st.markdown(f"**👤 이용자:** {current_user['이름']}님 팀")
-                st.markdown(f"**⏰ 이용 시간:** `{current_user['시작']}` ~ `{current_user['종료']}`")
+                st.markdown(f"**👤 현재 이용:** {current_user['이름']}님 팀")
+                st.markdown(f"**⏰ 남은 시간:** `{current_user['종료']}`까지")
                 
                 if current_user["출석"] == "미입실":
-                    st.warning("⚠️ 15분 내 QR 인증이 필요합니다.")
+                    st.warning("⚠️ 15분 내 QR 인증 필요")
                 st.divider()
             else:
-                st.success("✨ 현재 비어 있음 (즉시 이용 가능)")
+                st.success("✨ 현재 비어 있음")
+
+            # 2. 앞으로 예정된 예약 일정만 표시 (현재 사용 중이거나 이미 종료된 팀은 제외)
+            # 조건: 시작 시간이 현재 시각보다 늦어야 함
+            next_res = room_today[room_today["시작"] > current_time_str]
             
-            # 2. 그 외 오늘 예약된 다른 일정 표시
-            st.markdown("<p style='font-size: 0.9rem; font-weight: bold; margin-bottom: 5px;'>📅 오늘 전체 예약 리스트</p>", unsafe_allow_html=True)
+            st.markdown("<p style='font-size: 0.9rem; font-weight: bold; margin-bottom: 5px;'>📅 예정된 예약 리스트</p>", unsafe_allow_html=True)
             
-            if not room_today.empty:
-                for _, row in room_today.iterrows():
-                    # 현재 사용 중인 팀은 아이콘으로 구분
-                    is_current = "🔥" if (not occ.empty and row.name == current_user.name) else "🗓️"
-                    st.caption(f"{is_current} {row['시작']} ~ {row['종료']} ({row['이름']}님)")
+            if not next_res.empty:
+                for _, row in next_res.iterrows():
+                    st.caption(f"🕒 {row['시작']} ~ {row['종료']} ({row['이름']}님)")
             else:
-                st.caption("오늘 예정된 예약이 없습니다.")
+                st.caption("이후 예정된 예약이 없습니다.")
 
 # --- [4. 메인 화면 구성] ---
 st.title("🌿 생명과학대학 스터디룸 예약")
@@ -264,6 +265,7 @@ with st.expander("🛠️ 관리자 전용 메뉴"):
                 df_ad = df_ad.drop(df_ad[(df_ad["이름"] == t["이름"]) & (df_ad["학번"] == t["학번"]) & (df_ad["날짜"] == t["날짜"]) & (df_ad["시작"] == t["시작"])].index)
                 df_ad.to_csv(DB_FILE, index=False, encoding='utf-8-sig'); st.rerun()
         else: st.info("관리할 예약 내역 없음")
+
 
 
 

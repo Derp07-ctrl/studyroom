@@ -64,7 +64,7 @@ def auto_cleanup_noshow(df):
     return df
 
 def process_qr_checkin(df):
-    """URL 파라미터를 통한 QR 즉시 체크인 처리"""
+    """URL 파라미터를 통한 QR 즉시 체크인 처리 (효과 추가)"""
     q_params = st.query_params
     if "checkin" in q_params:
         room_code = q_params["checkin"]
@@ -72,16 +72,22 @@ def process_qr_checkin(df):
         now_kst = get_kst_now().replace(tzinfo=None)
         now_date = str(now_kst.date())
         now_time = now_kst.strftime("%H:%M")
-        mask = (df["방번호"] == target_room) & (df["날짜"] == now_date) & \
-               (df["시작"] <= now_time) & (df["종료"] > now_time) & (df["출석"] == "미입실")
+        
+        mask = (df["방번호"] == target_room) & \
+               (df["날짜"] == now_date) & \
+               (df["시작"] <= now_time) & \
+               (df["종료"] > now_time) & \
+               (df["출석"] == "미입실")
+        
         if any(mask):
             user_name = df.loc[mask, "이름"].values[0]
             df.loc[mask, "출석"] = "입실완료"
             df.to_csv(DB_FILE, index=False, encoding='utf-8-sig')
+            st.balloons() # 체크인 성공 축하 효과
             st.success(f"✅ 인증 성공: {user_name}님, {target_room} 입실 확인되었습니다!")
             st.query_params.clear()
         else:
-            st.warning(f"현재 {target_room}에 등록된 본인의 예약 시간이 아니거나 이미 인증되었습니다.")
+            st.warning(f"⚠️ 인증 실패: 현재 {target_room}에 예약된 본인의 시간이 아니거나 이미 인증되었습니다.")
     return df
 
 # --- [2. 페이지 설정 및 다크모드 대응 디자인] ---
@@ -123,20 +129,17 @@ df_all = get_latest_df()
 df_all = auto_cleanup_noshow(df_all)
 df_all = process_qr_checkin(df_all)
 
-# --- [3. 사이드바 실시간 현황 개선 버전] ---
+# --- [3. 사이드바 실시간 현황 고도화] ---
 with st.sidebar:
     st.markdown(f"<h2 style='color:var(--point-color);'>📊 실시간 점유 현황</h2>", unsafe_allow_html=True)
     st.info(f"🕒 **현재 시각(KST)** {now_kst.strftime('%H:%M')}")
     
-    # 오늘 날짜의 예약만 필터링
     today_date_str = str(now_kst.date())
     today_df = df_all[df_all["날짜"] == today_date_str].sort_values(by="시작")
     
     for r_name in ["1번 스터디룸", "2번 스터디룸"]:
         with st.expander(f"🚪 {r_name}", expanded=True):
             room_res = today_df[today_df["방번호"] == r_name]
-            
-            # 1. 현재 시간 기준 점유 여부 확인
             current_booking = None
             future_bookings = []
             
@@ -145,14 +148,10 @@ with st.sidebar:
                     s_t = datetime.strptime(row["시작"], "%H:%M").time()
                     e_t = datetime.strptime(row["종료"], "%H:%M").time()
                     now_t = now_kst.time()
-                    
-                    if s_t <= now_t < e_t:
-                        current_booking = row
-                    elif s_t > now_t:
-                        future_bookings.append(row)
+                    if s_t <= now_t < e_t: current_booking = row
+                    elif s_t > now_t: future_bookings.append(row)
                 except: continue
             
-            # 2. 현재 상태 표시
             if current_booking is not None:
                 status_icon = "✅" if current_booking["출석"] == "입실완료" else "⚠️"
                 st.error(f"{status_icon} **현재 예약 중**")
@@ -166,20 +165,12 @@ with st.sidebar:
             else:
                 st.success("✨ 현재 이용 가능")
 
-            # 3. 이후 예약 일정 표시 (다음 예약 안내)
             if future_bookings:
                 st.markdown("<p style='font-size: 0.8rem; font-weight: bold; margin-top: 10px;'>📅 이후 예약 일정</p>", unsafe_allow_html=True)
                 for fb in future_bookings:
-                    st.markdown(f"""
-                        <div style="font-size: 0.8rem; border-bottom: 1px dotted #ccc; padding: 2px 0;">
-                            🕒 {fb['시작']} ~ {fb['종료']} ({fb['이름']}님)
-                        </div>
-                    """, unsafe_allow_html=True)
+                    st.markdown(f"""<div style="font-size: 0.8rem; border-bottom: 1px dotted #ccc; padding: 2px 0;">🕒 {fb['시작']} ~ {fb['종료']} ({fb['이름']}님)</div>""", unsafe_allow_html=True)
             else:
-                if current_booking is None:
-                    st.caption("오늘 남은 예약이 없습니다.")
-                else:
-                    st.caption("이후 예약이 없습니다.")
+                st.caption("이후 예약 없음")
 
     st.divider()
     st.caption("🌿 생명과학대학 학생회")
@@ -189,7 +180,6 @@ st.title("🌿 스터디룸 예약 시스템")
 
 tab1, tab2, tab3, tab4, tab5 = st.tabs(["📅 예약 신청", "🔍 내 예약 확인", "📋 전체 일정 보기", "➕ 시간 연장", "♻️ 반납 및 취소"])
 
-# [탭 1: 예약 신청]
 with tab1:
     st.markdown('<div class="step-header">1. 예약자 정보 입력</div>', unsafe_allow_html=True)
     c1, c2, c3, c4 = st.columns(4)
@@ -236,7 +226,6 @@ with tab1:
                     </div>
                 """, unsafe_allow_html=True)
 
-# [탭 2: 내 예약 확인]
 with tab2:
     st.markdown('<div class="step-header">🔍 예약 내역 조회</div>', unsafe_allow_html=True)
     mc1, mc2 = st.columns(2)
@@ -249,7 +238,6 @@ with tab2:
             st.markdown(f"""<div class="res-card">📍 <b>{r['방번호']}</b><br>📅 {r['날짜']} | ⏰ {r['시작']} ~ {r['종료']}<br>상태: <b>{r['출석']}</b></div>""", unsafe_allow_html=True)
         else: st.error("내역이 없습니다.")
 
-# [탭 3: 전체 일정 보기]
 with tab3:
     st.markdown('<div class="step-header">📋 통합 예약 일정</div>', unsafe_allow_html=True)
     if not df_all.empty:
@@ -265,7 +253,6 @@ with tab3:
                     st.markdown(f"""<div class="schedule-card"><b>{row['시작']} ~ {row['종료']}</b> | {row['이름']} <span style="color:{status_color};">[{row['출석']}]</span></div>""", unsafe_allow_html=True)
     else: st.info("등록된 데이터가 없습니다.")
 
-# [탭 4: 시간 연장]
 with tab4:
     st.markdown('<div class="step-header">➕ 이용 시간 연장</div>', unsafe_allow_html=True)
     ext_name = st.text_input("대표자 이름 (연장용)", key="ext_n")
@@ -291,7 +278,6 @@ with tab4:
                 df_up.loc[idx, "종료"] = new_en; df_up.to_csv(DB_FILE, index=False, encoding='utf-8-sig')
                 st.success("연장 완료!"); del st.session_state['ext_target']; st.rerun()
 
-# [탭 5: 반납 및 취소]
 with tab5:
     st.markdown('<div class="step-header">♻️ 예약 반납 및 취소</div>', unsafe_allow_html=True)
     can_name = st.text_input("이름 (취소용)", key="can_n")
@@ -307,7 +293,6 @@ with tab5:
             df_del.drop(df_del[(df_del["이름"]==t["이름"]) & (df_del["학번"]==str(t["학번"])) & (df_del["날짜"]==t["날짜"]) & (df_del["시작"]==t["시작"])].index).to_csv(DB_FILE, index=False, encoding='utf-8-sig')
             st.success("취소 완료"); del st.session_state['re_target']; st.rerun()
 
-# --- [5. 관리자 메뉴] ---
 st.markdown('<div style="height:100px;"></div>', unsafe_allow_html=True)
 with st.expander("🛠️ 관리자 전용 메뉴"):
     pw = st.text_input("Admin Password", type="password", key="admin_pw")
@@ -322,5 +307,3 @@ with st.expander("🛠️ 관리자 전용 메뉴"):
                 st.rerun()
             st.divider()
             st.dataframe(df_ad.drop(columns=['label']), use_container_width=True)
-
-

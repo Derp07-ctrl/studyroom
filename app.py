@@ -123,26 +123,64 @@ df_all = get_latest_df()
 df_all = auto_cleanup_noshow(df_all)
 df_all = process_qr_checkin(df_all)
 
-# --- [3. 사이드바 실시간 현황] ---
+# --- [3. 사이드바 실시간 현황 개선 버전] ---
 with st.sidebar:
-    st.markdown(f"<h2 style='color:var(--point-color);'>📊 실시간 점유</h2>", unsafe_allow_html=True)
-    st.info(f"🕒 **KST** {now_kst.strftime('%H:%M')}")
-    today_df = df_all[df_all["날짜"] == str(now_kst.date())].sort_values(by="시작")
-    for r in ["1번 스터디룸", "2번 스터디룸"]:
-        with st.expander(f"🚪 {r}", expanded=True):
-            room_res = today_df[today_df["방번호"] == r]
-            is_occ = False
+    st.markdown(f"<h2 style='color:var(--point-color);'>📊 실시간 점유 현황</h2>", unsafe_allow_html=True)
+    st.info(f"🕒 **현재 시각(KST)** {now_kst.strftime('%H:%M')}")
+    
+    # 오늘 날짜의 예약만 필터링
+    today_date_str = str(now_kst.date())
+    today_df = df_all[df_all["날짜"] == today_date_str].sort_values(by="시작")
+    
+    for r_name in ["1번 스터디룸", "2번 스터디룸"]:
+        with st.expander(f"🚪 {r_name}", expanded=True):
+            room_res = today_df[today_df["방번호"] == r_name]
+            
+            # 1. 현재 시간 기준 점유 여부 확인
+            current_booking = None
+            future_bookings = []
+            
             for _, row in room_res.iterrows():
                 try:
                     s_t = datetime.strptime(row["시작"], "%H:%M").time()
                     e_t = datetime.strptime(row["종료"], "%H:%M").time()
-                    if s_t <= now_kst.time() < e_t:
-                        is_occ = True
-                        status = "✅ 입실완료" if row["출석"] == "입실완료" else "⚠️ 미인증"
-                        st.error(f"{status} ({row['시작']}~{row['종료']})")
-                        break
+                    now_t = now_kst.time()
+                    
+                    if s_t <= now_t < e_t:
+                        current_booking = row
+                    elif s_t > now_t:
+                        future_bookings.append(row)
                 except: continue
-            if not is_occ: st.success("예약 가능")
+            
+            # 2. 현재 상태 표시
+            if current_booking is not None:
+                status_icon = "✅" if current_booking["출석"] == "입실완료" else "⚠️"
+                st.error(f"{status_icon} **현재 예약 중**")
+                st.markdown(f"""
+                    <div style="font-size: 0.85rem; padding: 5px; border-radius: 5px; background-color: rgba(255, 75, 75, 0.1); margin-bottom: 10px;">
+                        👤 {current_booking['이름']}님 팀<br>
+                        ⏰ {current_booking['시작']} ~ {current_booking['종료']}<br>
+                        상태: {current_booking['출석']}
+                    </div>
+                """, unsafe_allow_html=True)
+            else:
+                st.success("✨ 현재 이용 가능")
+
+            # 3. 이후 예약 일정 표시 (다음 예약 안내)
+            if future_bookings:
+                st.markdown("<p style='font-size: 0.8rem; font-weight: bold; margin-top: 10px;'>📅 이후 예약 일정</p>", unsafe_allow_html=True)
+                for fb in future_bookings:
+                    st.markdown(f"""
+                        <div style="font-size: 0.8rem; border-bottom: 1px dotted #ccc; padding: 2px 0;">
+                            🕒 {fb['시작']} ~ {fb['종료']} ({fb['이름']}님)
+                        </div>
+                    """, unsafe_allow_html=True)
+            else:
+                if current_booking is None:
+                    st.caption("오늘 남은 예약이 없습니다.")
+                else:
+                    st.caption("이후 예약이 없습니다.")
+
     st.divider()
     st.caption("🌿 생명과학대학 학생회")
 
@@ -284,4 +322,5 @@ with st.expander("🛠️ 관리자 전용 메뉴"):
                 st.rerun()
             st.divider()
             st.dataframe(df_ad.drop(columns=['label']), use_container_width=True)
+
 

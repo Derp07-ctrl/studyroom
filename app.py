@@ -7,7 +7,7 @@ from datetime import datetime, timedelta, timezone
 # 데이터 저장 파일명
 DB_FILE = "reservations.csv"
 
-# --- [1. 핵심 함수 정의] 배포 에러 방지를 위해 최상단 배치 ---
+# --- [1. 핵심 함수 정의] ---
 
 def get_kst_now():
     """서버 시간(UTC)을 한국 시간(KST)으로 변환합니다."""
@@ -71,7 +71,7 @@ def process_qr_checkin(df):
             st.warning(f"현재 {target_room}에 등록된 본인의 예약 시간이 아니거나 이미 인증되었습니다.")
     return df
 
-# --- [2. 페이지 설정 및 디자인 틀 유지] ---
+# --- [2. 페이지 설정 및 디자인] ---
 st.set_page_config(page_title="생과대 스터디룸 예약", page_icon="🌿", layout="wide")
 
 st.markdown("""
@@ -81,11 +81,13 @@ st.markdown("""
     .step-header { color: #3E7D6B; font-weight: bold; border-bottom: 2px solid #A7D7C5; padding-bottom: 5px; margin-bottom: 15px; font-size: 1.2rem; }
     .schedule-card { background-color: #ffffff; padding: 15px; border-radius: 12px; border-left: 8px solid #A7D7C5; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 12px; }
     .res-card { background-color: #ffffff; padding: 20px; border-radius: 12px; border-left: 6px solid #A7D7C5; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-top: 10px; }
+    .success-receipt { background-color: #ffffff; border: 2px dashed #A7D7C5; padding: 25px; border-radius: 15px; margin-top: 20px; position: relative; }
+    .receipt-title { color: #3E7D6B; font-size: 1.5rem; font-weight: bold; text-align: center; margin-bottom: 20px; }
+    .receipt-item { display: flex; justify-content: space-between; margin-bottom: 10px; border-bottom: 1px dotted #eee; padding-bottom: 5px; }
     .spacer { margin-top: 60px; }
     </style>
     """, unsafe_allow_html=True)
 
-# 한국 시간 기준으로 변수 설정
 now_kst = get_kst_now().replace(tzinfo=None)
 time_options_all = [f"{h:02d}:{m:02d}" for h in range(0, 24) for m in (0, 30)]
 dept_options = ["스마트팜과학과", "식품생명공학과", "유전생명공학과", "융합바이오·신소재공학과"]
@@ -97,6 +99,7 @@ df_all = process_qr_checkin(df_all)
 # --- [3. 사이드바 실시간 현황] ---
 with st.sidebar:
     st.markdown("<h2 style='color:#3E7D6B;'>📊 실시간 점유 현황</h2>", unsafe_allow_html=True)
+    st.info(f"🕒 현재 시각(KST): {now_kst.strftime('%H:%M')}")
     today_df = df_all[df_all["날짜"] == str(now_kst.date())].sort_values(by="시작")
     for r in ["1번 스터디룸", "2번 스터디룸"]:
         with st.expander(f"🚪 {r}", expanded=True):
@@ -108,7 +111,7 @@ with st.sidebar:
                     e_t = datetime.strptime(row["종료"], "%H:%M").time()
                     if s_t <= now_kst.time() < e_t:
                         is_occ = True
-                        status = "✅ 입실완료" if row["출석"] == "입실완료" else "⚠️ 미인증(곧 취소)"
+                        status = "✅ 입실완료" if row["출석"] == "입실완료" else "⚠️ 미인증(곧 자동취소)"
                         st.error(f"{status} ({row['시작']}~{row['종료']})")
                         break
                 except: continue
@@ -119,16 +122,15 @@ with st.sidebar:
 # --- [4. 메인 화면 구성] ---
 st.title("🌿 생명과학대학 스터디룸 예약 시스템")
 
-tabs = st.tabs(["📅 예약 신청", "🔍 내 예약 확인", "📋 전체 일정 보기", "➕ 시간 연장", "♻️ 반납 및 취소"])
+tab1, tab2, tab3, tab4, tab5 = st.tabs(["📅 예약 신청", "🔍 내 예약 확인", "📋 전체 일정 보기", "➕ 시간 연장", "♻️ 반납 및 취소"])
 
 # [탭 1: 예약 신청]
-with tabs[0]:
+with tab1:
     st.markdown('<div class="step-header">1. 예약자 정보 입력</div>', unsafe_allow_html=True)
     c1, c2, c3, c4 = st.columns(4)
     dept = c1.selectbox("🏢 학과", dept_options, key="reg_dept")
     name = c2.text_input("👤 이름", placeholder="성함 입력", key="reg_name")
     sid = c3.text_input("🆔 학번", placeholder="학번 8자리", key="reg_sid")
-    # 최소 인원 3명 제한
     count = c4.number_input("👥 인원 (최소 3명)", min_value=3, max_value=20, value=3, step=1, key="reg_count")
 
     st.markdown('<div class="step-header">2. 스터디룸 및 시간 선택</div>', unsafe_allow_html=True)
@@ -136,7 +138,6 @@ with tabs[0]:
     room = sc1.selectbox("🚪 스터디룸 선택", ["1번 스터디룸", "2번 스터디룸"], key="reg_room")
     date = sc2.date_input("📅 날짜", min_value=now_kst.date(), max_value=now_kst.date()+timedelta(days=13), key="reg_date")
 
-    # 한국 시간 기준 지난 시간 필터링 및 자동 추천
     if date == now_kst.date():
         current_time_str = now_kst.strftime("%H:%M")
         available_start_times = [t for t in time_options_all if t > current_time_str]
@@ -159,11 +160,28 @@ with tabs[0]:
             else:
                 new_row = pd.DataFrame([[dept, name.strip(), sid.strip(), count, str(date), st_t, en_t, room, "미입실"]], columns=["학과", "이름", "학번", "인원", "날짜", "시작", "종료", "방번호", "출석"])
                 new_row.to_csv(DB_FILE, mode='a', header=not os.path.exists(DB_FILE), index=False, encoding='utf-8-sig')
-                st.success(f"🎉 예약 완료! {st_t} ~ {en_t}")
-                st.rerun()
+                
+                # --- [수정] 예약 성공 시 상세 확인서 출력 ---
+                st.balloons()
+                st.markdown(f"""
+                    <div class="success-receipt">
+                        <div class="receipt-title">🌿 스터디룸 예약 확인서</div>
+                        <div class="receipt-item"><span>예약 번호</span><b>{datetime.now().strftime('%y%m%d%H%M')}</b></div>
+                        <div class="receipt-item"><span>신청자</span><b>{name} ({sid})</b></div>
+                        <div class="receipt-item"><span>소속 학과</span><b>{dept}</b></div>
+                        <div class="receipt-item"><span>예약 장소</span><b style="color: #3E7D6B;">{room}</b></div>
+                        <div class="receipt-item"><span>예약 날짜</span><b>{date}</b></div>
+                        <div class="receipt-item"><span>이용 시간</span><b>{st_t} ~ {en_t}</b></div>
+                        <div class="receipt-item"><span>이용 인원</span><b>{count}명</b></div>
+                        <div style="margin-top: 20px; padding: 10px; background-color: #FFF9E6; border-radius: 8px; font-size: 0.9rem; color: #856404;">
+                            ⚠️ <b>안내사항:</b> 스터디룸 입구의 QR 코드를 스캔하여 15분 내에 입실을 완료해 주세요. 미인증 시 예약이 자동 취소됩니다.
+                        </div>
+                    </div>
+                """, unsafe_allow_html=True)
+                if st.button("새로고침", key="btn_refresh"): st.rerun()
 
 # [탭 2: 내 예약 확인]
-with tabs[1]:
+with tab2:
     st.markdown('<div class="step-header">🔍 예약 확인</div>', unsafe_allow_html=True)
     mc1, mc2 = st.columns(2)
     m_name = mc1.text_input("조회용 이름", key="my_name")
@@ -175,55 +193,36 @@ with tabs[1]:
             st.markdown(f"""<div class="res-card"><h3>✅ {r['이름']}님의 예약</h3><p>📍 {r['방번호']} / 📅 {r['날짜']} / ⏰ {r['시작']} ~ {r['종료']}</p><p>상태: <b>{r['출석']}</b></p></div>""", unsafe_allow_html=True)
         else: st.error("내역이 없습니다.")
 
-with tabs[2]:
-    st.markdown('<div class="step-header">📋 전체 예약 일정</div>', unsafe_allow_html=True)
-    
+# [탭 3: 전체 일정 보기 - 가독성 강화 버전]
+with tab3:
+    st.markdown('<div class="step-header">📋 통합 예약 일정</div>', unsafe_allow_html=True)
     if not df_all.empty:
-        # 날짜 선택 UI
         u_dates = sorted(df_all["날짜"].unique())
-        s_date = st.selectbox("📅 조회할 날짜를 선택하세요", u_dates, key="view_date")
-        
-        # 선택한 날짜의 데이터 필터링 및 정렬
+        s_date = st.selectbox("날짜 선택", u_dates, key="view_date")
         day_df = df_all[df_all["날짜"] == s_date].sort_values(by=["방번호", "시작"])
         
         if not day_df.empty:
-            # 방별로 구분하여 카드 형식으로 출력
-            for room_name in ["1번 스터디룸", "2번 스터디룸"]:
-                st.markdown(f"#### 🚪 {room_name}")
-                room_day_df = day_df[day_df["방번호"] == room_name]
-                
-                if room_day_df.empty:
-                    st.write("해당 방은 예약이 없습니다.")
+            for r_name in ["1번 스터디룸", "2번 스터디룸"]:
+                st.markdown(f"#### 🚪 {r_name}")
+                room_day_df = day_df[day_df["방번호"] == r_name]
+                if room_day_df.empty: st.caption("해당 날짜에 예약이 없습니다.")
                 else:
-                    # 가독성을 위해 컬럼 구성
                     for _, row in room_day_df.iterrows():
-                        # 출석 상태에 따른 배지(Badge) 효과
                         status_color = "#28a745" if row['출석'] == "입실완료" else "#ffc107"
-                        
                         st.markdown(f"""
                             <div class="schedule-card">
-                                <div style="display: flex; justify-content: space-between; align-items: center;">
-                                    <span style="font-size: 1.1rem; font-weight: bold; color: #3E7D6B;">
-                                        ⏰ {row['시작']} ~ {row['종료']}
-                                    </span>
-                                    <span style="background-color: {status_color}; color: white; padding: 2px 8px; border-radius: 5px; font-size: 0.8rem;">
-                                        {row['출석']}
-                                    </span>
+                                <div style="display: flex; justify-content: space-between;">
+                                    <span style="font-weight: bold; color: #3E7D6B;">⏰ {row['시작']} ~ {row['종료']}</span>
+                                    <span style="background-color: {status_color}; color: white; padding: 2px 8px; border-radius: 5px; font-size: 0.8rem;">{row['출석']}</span>
                                 </div>
-                                <div style="margin-top: 5px; color: #555;">
-                                    👤 {row['이름']} ({row['학과']}) | 👥 {row['인원']}명
-                                </div>
+                                <div style="margin-top: 5px; font-size: 0.9rem;">👤 {row['이름']} ({row['학과']}) | 👥 {row['인원']}명</div>
                             </div>
                         """, unsafe_allow_html=True)
-                st.write("") # 방 사이 간격
-        else:
-            st.info("📅 해당 날짜에 예약된 일정이 없습니다.")
-    else:
-        st.warning("📋 등록된 전체 예약 데이터가 없습니다.")
-
+        else: st.info("📅 해당 날짜에 예약이 없습니다.")
+    else: st.info("📋 등록된 데이터가 없습니다.")
 
 # [탭 4: 시간 연장]
-with tabs[3]:
+with tab4:
     st.markdown('<div class="step-header">➕ 이용 시간 연장</div>', unsafe_allow_html=True)
     ext_name = st.text_input("이름 (연장용)", key="ext_n")
     if st.button("연장 가능 여부 확인", key="btn_ext_check"):
@@ -249,7 +248,7 @@ with tabs[3]:
                 st.success("연장 완료!"); del st.session_state['ext_target']; st.rerun()
 
 # [탭 5: 반납 및 취소]
-with tabs[4]:
+with tab5:
     st.markdown('<div class="step-header">♻️ 예약 반납 및 취소</div>', unsafe_allow_html=True)
     can_name = st.text_input("이름 (취소용)", key="can_n")
     if st.button("조회하기", key="btn_can_lookup"):
@@ -276,6 +275,3 @@ with st.expander("🛠️ 관리자 전용 메뉴"):
                 df_ad = df_ad[df_ad['label'] != target_l]
                 df_ad.drop(columns=['label']).to_csv(DB_FILE, index=False, encoding='utf-8-sig')
                 st.rerun()
-
-
-

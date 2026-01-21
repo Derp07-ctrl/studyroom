@@ -194,10 +194,43 @@ with tab3:
 # [탭 4, 5: 연장 및 반납]
 with tab4:
     st.markdown('<div class="step-header">➕ 이용 시간 연장</div>', unsafe_allow_html=True)
-    # (...기존 연장 로직...)
+    e_name = st.text_input("이름 (연장용)", key="e_n")
+    if st.button("연장 가능 여부 확인"):
+        df_e = get_latest_df()
+        res_e = df_e[(df_e["이름"] == e_name) & (df_e["날짜"] == str(now.date()))]
+        if not res_e.empty:
+            target = res_e.iloc[-1]
+            end_dt = datetime.combine(now.date(), datetime.strptime(target['종료'], "%H:%M").time())
+            if (end_dt - timedelta(minutes=30)) <= now < end_dt:
+                st.session_state['ext_target'] = target
+                st.success(f"연장 가능! 현재 종료: {target['종료']}")
+            else: st.warning("종료 30분 전부터 가능합니다.")
+        else: st.warning("오늘 예약 내역 없음")
+    if 'ext_target' in st.session_state:
+        target = st.session_state['ext_target']
+        new_en = st.selectbox("새 종료 시간", time_options[time_options.index(target['종료'])+1:time_options.index(target['종료'])+5])
+        if st.button("연장 확정"):
+            if check_overlap(now.date(), target['종료'], new_en, target['방번호']): st.error("중복 발생")
+            else:
+                df_up = get_latest_df()
+                idx = df_up[(df_up["이름"] == e_name) & (df_up["날짜"] == str(now.date())) & (df_up["시작"] == target['시작'])].index
+                df_up.loc[idx, "종료"] = new_en; df_up.to_csv(DB_FILE, index=False, encoding='utf-8-sig')
+                st.success("연장 완료!"); del st.session_state['ext_target']; st.rerun()
+
 with tab5:
     st.markdown('<div class="step-header">♻️ 예약 반납 및 취소</div>', unsafe_allow_html=True)
-    # (...기존 반납 로직...)
+    c_name = st.text_input("이름 (취소용)", key="c_n")
+    if st.button("취소 내역 확인"):
+        df_c = get_latest_df()
+        res_c = df_c[df_c["이름"] == c_name].sort_values(by="날짜")
+        if not res_c.empty:
+            st.session_state['re_target'] = res_c.iloc[0]
+            st.info(f"선택됨: {st.session_state['re_target']['날짜']} {st.session_state['re_target']['방번호']}")
+    if 're_target' in st.session_state:
+        if st.button("✅ 최종 취소/반납", type="primary"):
+            df_del = get_latest_df(); t = st.session_state['re_target']
+            df_del.drop(df_del[(df_del["이름"]==t["이름"]) & (df_del["학번"]==t["학번"]) & (df_del["날짜"]==t["날짜"]) & (df_del["시작"]==t["시작"])].index).to_csv(DB_FILE, index=False, encoding='utf-8-sig')
+            st.success("취소 완료"); del st.session_state['re_target']; st.rerun()
 
 # --- 관리자 메뉴 ---
 st.markdown('<div class="spacer"></div>', unsafe_allow_html=True)
@@ -208,4 +241,5 @@ with st.expander("🛠️ 관리자 전용 메뉴"):
         if st.button("🗑️ 선택 삭제"):
             # 관리자용 개별 삭제 로직 구현 가능
             pass
+
 

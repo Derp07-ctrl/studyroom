@@ -157,19 +157,15 @@ with tabs[0]:
         dept = c1.selectbox("🏢 학과", ["스마트팜과학과", "식품생명공학과", "유전생명공학과", "융합바이오·신소재공학과"], key="reg_dept")
         name = c2.text_input("👤 이름", key="reg_name")
         
-        # --- [디테일: 학번 입력 제한] ---
-        # max_chars=8로 8칸 제한, help로 안내문 제공
-        sid = c3.text_input("🆔 학번", key="reg_sid", max_chars=10, placeholder="예: 2026123456")
+        # [수정] 학번 입력 제한: 숫자만 10자리
+        sid = c3.text_input("🆔 학번 (10자리 숫자만)", key="reg_sid", max_chars=10, placeholder="예: 2024123456")
         count = c4.number_input("👥 인원 (최소 3명)", min_value=3, value=3, key="reg_count")
         
-        # 유효성 검사 (숫자인지 && 8자리인지)
+        # 유효성 검사 (숫자인지 && 10자리인지)
         is_sid_valid = sid.isdigit() and len(sid) == 10
-        
         if sid:
-            if not sid.isdigit():
-                st.caption("❌ **숫자만** 입력 가능합니다.")
-            elif len(sid) < 10:
-                st.caption(f"⚠️ 현재 {len(sid)}자 / **10자리를 모두 입력해주세요.**")
+            if not sid.isdigit(): st.caption("❌ **숫자만** 입력 가능합니다.")
+            elif len(sid) < 10: st.caption(f"⚠️ 현재 {len(sid)}자 / **10자리를 모두 입력해주세요.**")
 
         st.markdown('<div class="step-header">2. 장소 및 시간 선택</div>', unsafe_allow_html=True)
         sc1, sc2, tc1, tc2 = st.columns([2, 1, 1, 1])
@@ -182,12 +178,12 @@ with tabs[0]:
         threshold_time = (now_kst - timedelta(minutes=15)).strftime("%H:%M")
         available_start = [t for t in time_options_all if t >= threshold_time] if str(date) == str(now_kst.date()) else time_options_all
         
-        if not available_start: st.error("⚠️ 오늘은 예약 가능한 시간이 없습니다.")
+        if not available_start: st.error("⚠️ 오늘은 더 이상 예약 가능한 시간이 없습니다.")
         else:
             st_t = tc1.selectbox("⏰ 시작", available_start, key="reg_start")
             en_t = tc2.selectbox("⏰ 종료", [t for t in time_options_all if t > st_t], key="reg_end")
             
-            # [수정] 모든 조건이 충족되어야 버튼 활성화
+            # 버튼 활성화 조건: 이름 입력 AND 학번 10자리 숫자 성공 시 활성화
             submit_disabled = not (name.strip() and is_sid_valid)
             
             if st.button("🚀 예약 신청", key="btn_reservation", disabled=submit_disabled):
@@ -212,7 +208,7 @@ with tabs[0]:
                 <div class="receipt-item"><span>시간</span><b>{res['date']} / {res['start']} ~ {res['end']}</b></div>
             </div>
         """, unsafe_allow_html=True)
-        if st.button("새로고침):
+        if st.button("새로운 예약 신청하기"):
             st.session_state.reserve_success = False
             st.rerun()
         
@@ -322,6 +318,7 @@ with st.expander("🛠️ 관리자 전용 메뉴"):
                 st.rerun()
         else:
             st.info("현재 관리할 예약 내역이 없습니다.")
+
 
 
 

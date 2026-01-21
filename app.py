@@ -251,10 +251,11 @@ with st.expander("🛠️ 관리자 전용 메뉴"):
         if not df_ad.empty:
             labels = [f"{r['이름']} | {r['날짜']} | {r['방번호']}" for _, r in df_ad.iterrows()]
             sel = st.selectbox("삭제 대상", range(len(labels)), format_func=lambda x: labels[x])
-            if st.button("강제 삭제"):
+            if st.button("퇴실"):
                 t = df_ad.iloc[sel]
                 df_ad.drop(df_ad[(df_ad["이름"] == t["이름"]) & (df_ad["학번"] == t["학번"]) & (df_ad["날짜"] == t["날짜"]) & (df_ad["시작"] == t["시작"])].index).to_csv(DB_FILE, index=False, encoding='utf-8-sig')
                 st.rerun()
+
 
 
 

@@ -162,7 +162,6 @@ with tab1:
                 new_row.to_csv(DB_FILE, mode='a', header=not os.path.exists(DB_FILE), index=False, encoding='utf-8-sig')
                 
                 # --- [수정] 예약 성공 시 상세 확인서 출력 ---
-                st.balloons()
                 st.markdown(f"""
                     <div class="success-receipt">
                         <div class="receipt-title">🌿 스터디룸 예약 확인서</div>
@@ -275,3 +274,4 @@ with st.expander("🛠️ 관리자 전용 메뉴"):
                 df_ad = df_ad[df_ad['label'] != target_l]
                 df_ad.drop(columns=['label']).to_csv(DB_FILE, index=False, encoding='utf-8-sig')
                 st.rerun()
+

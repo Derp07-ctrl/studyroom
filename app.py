@@ -107,7 +107,6 @@ df_all = process_qr_checkin(df_all)
 # --- [3. 사이드바 실시간 현황] ---
 with st.sidebar:
     st.markdown(f"<h2 style='color:var(--point-color);'>📊 실시간 예약 현황</h2>", unsafe_allow_html=True)
-    st.info(f"🕒 현재 시각: **{current_time_str}**")
 
     today_res = df_all[df_all["날짜"] == str(now_kst.date())]
     
@@ -263,6 +262,7 @@ with st.expander("🛠️ 관리자 전용 메뉴"):
                 df_ad = df_ad.drop(df_ad[(df_ad["이름"] == t["이름"]) & (df_ad["학번"] == t["학번"]) & (df_ad["날짜"] == t["날짜"]) & (df_ad["시작"] == t["시작"])].index)
                 df_ad.to_csv(DB_FILE, index=False, encoding='utf-8-sig'); st.rerun()
         else: st.info("관리할 예약 내역 없음")
+
 
 
 

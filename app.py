@@ -75,7 +75,6 @@ def process_qr_checkin(df):
             user_name = df.loc[mask, "이름"].values[0]
             df.loc[mask, "출석"] = "입실완료"
             df.to_csv(DB_FILE, index=False, encoding='utf-8-sig')
-            st.balloons()
             st.success(f"✅ 인증 성공: {user_name}님, 입실 확인되었습니다!")
             st.query_params.clear()
         else:
@@ -246,4 +245,5 @@ with st.expander("🛠️ 관리자 전용 메뉴"):
                 df_ad = df_ad.drop(df_ad[(df_ad["이름"] == t["이름"]) & (df_ad["학번"] == t["학번"]) & (df_ad["날짜"] == t["날짜"]) & (df_ad["시작"] == t["시작"])].index)
                 df_ad.to_csv(DB_FILE, index=False, encoding='utf-8-sig'); st.rerun()
         else: st.info("관리할 예약 내역 없음")
+
 

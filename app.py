@@ -272,3 +272,4 @@ with st.expander("🛠️ 관리자 전용 메뉴"):
                 df_all = df_all.drop(df_all.index[sel])
                 update_gsheet(df_all); st.success("삭제되었습니다."); st.rerun()
 
+

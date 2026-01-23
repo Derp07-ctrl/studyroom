@@ -103,12 +103,14 @@ st.markdown("""
     .success-receipt { border: 2px dashed var(--point-color); padding: 25px; border-radius: 15px; margin-top: 20px; background-color: white; color: black; }
     .receipt-title { color: var(--point-color); font-size: 1.5rem; font-weight: bold; text-align: center; margin-bottom: 20px; }
     .receipt-item { display: flex; justify-content: space-between; margin-bottom: 10px; border-bottom: 1px solid rgba(167, 215, 197, 0.3); padding-bottom: 5px; }
+    .member-box { padding: 10px; border: 1px solid #f0f2f6; border-radius: 10px; margin-bottom: 10px; background-color: #ffffff; }
     </style>
     """, unsafe_allow_html=True)
 
 now_kst = get_kst_now().replace(tzinfo=None)
 current_time_str = now_kst.strftime("%H:%M")
 time_options_all = [f"{h:02d}:{m:02d}" for h in range(0, 24) for m in (0, 30)]
+depts = ["스마트팜과학과", "식품생명공학과", "유전생명공학과", "융합바이오·신소재공학과"]
 
 df_all = get_latest_df()
 df_all = auto_cleanup_noshow(df_all)
@@ -144,46 +146,54 @@ with tabs[0]:
     if 'reserve_success' not in st.session_state:
         st.session_state.reserve_success = False
         st.session_state.last_res = {}
+    
     if not st.session_state.reserve_success:
-        # [변경] 구성원 정보 입력을 첫 번째 단계로 이동
-        st.markdown('<div class="step-header">1. 이용 인원 및 구성원 정보 입력 (학번 10자리)</div>', unsafe_allow_html=True)
-        total_count = st.number_input("이용 인원 (대표자 포함 3~6명)", min_value=3, max_value=6, value=3, key="reg_count")
+        # [변경] 구성원 정보 입력 단계: 인원 선택 스타일 개선
+        st.markdown('<div class="step-header">1. 이용 인원 및 구성원 정보 입력</div>', unsafe_allow_html=True)
         
-        st.write("**👤 대표자 정보**")
-        rc1, rc2, rc3 = st.columns([2, 2, 1])
-        dept = rc1.selectbox("학과", ["스마트팜과학과", "식품생명공학과", "유전생명공학과", "융합바이오·신소재공학과"], key="reg_dept")
-        name = rc2.text_input("이름", key="reg_name")
-        sid = rc3.text_input("학번", key="reg_sid", max_chars=10, placeholder="예: 2024123456")
+        # 인원 선택을 가로로 배치하여 공간 절약
+        total_count = st.select_slider("이용 인원을 선택하세요 (대표자 포함)", options=[3, 4, 5, 6], value=3, key="reg_count")
         
-        st.write(f"**👥 구성원 정보 (대표자 제외 {total_count-1}명)**")
+        st.markdown(f"**👤 대표자 정보**")
+        with st.container():
+            rc1, rc2, rc3 = st.columns([1.5, 1.2, 1])
+            rep_dept = rc1.selectbox("학과", depts, key="rep_dept")
+            rep_name = rc2.text_input("이름", key="rep_name", placeholder="성함")
+            rep_id = rc3.text_input("학번", key="rep_id", max_chars=10, placeholder="10자리")
+
+        st.markdown(f"**👥 구성원 정보 (대표자 제외 {total_count-1}명)**")
         member_names, member_ids = [], []
         for i in range(total_count - 1):
-            mc1, mc2 = st.columns(2)
-            m_n = mc1.text_input(f"팀원 {i+1} 이름", key=f"m_n_{i}")
-            m_id = mc2.text_input(f"팀원 {i+1} 학번", key=f"m_id_{i}", max_chars=10)
-            member_names.append(m_n.strip()); member_ids.append(m_id.strip())
+            st.markdown(f'<div style="font-size:0.85rem; color:#666; margin-bottom:5px;">팀원 {i+1}</div>', unsafe_allow_html=True)
+            mc1, mc2, mc3 = st.columns([1.5, 1.2, 1])
+            m_dept = mc1.selectbox(f"학과", depts, key=f"m_dept_{i}", label_visibility="collapsed")
+            m_name = mc2.text_input(f"이름", key=f"m_n_{i}", placeholder="성함", label_visibility="collapsed")
+            m_id = mc3.text_input(f"학번", key=f"m_id_{i}", max_chars=10, placeholder="10자리", label_visibility="collapsed")
+            member_names.append(m_name.strip())
+            member_ids.append(m_id.strip())
 
-        # [변경] 날짜 및 장소 선택을 두 번째 단계로 이동
+        # [변경] 날짜 및 장소 선택 단계
         st.markdown('<div class="step-header">2. 예약 날짜/장소/시간 선택</div>', unsafe_allow_html=True)
-        sc1, sc2, tc1, tc2 = st.columns([2, 1, 1, 1])
+        sc1, sc2, tc1, tc2 = st.columns([2, 1.5, 1, 1])
         
+        room = sc1.selectbox("🚪 장소 선택", ["1번 스터디룸", "2번 스터디룸"], key="reg_room")
         date_options = [now_kst.date(), (now_kst + timedelta(days=1)).date()]
         sel_date = sc2.selectbox("📅 예약 날짜", date_options, format_func=lambda x: x.strftime("%Y-%m-%d"), key="reg_date")
-        room = sc1.selectbox("🚪 장소 선택", ["1번 스터디룸", "2번 스터디룸"], key="reg_room")
         
         threshold_time = (now_kst - timedelta(minutes=15)).strftime("%H:%M")
         available_start = [t for t in time_options_all if t >= threshold_time] if str(sel_date) == str(now_kst.date()) else time_options_all
         st_t = tc1.selectbox("⏰ 시작", available_start, key="reg_start")
         en_t = tc2.selectbox("⏰ 종료", [t for t in time_options_all if t > st_t], key="reg_end")
 
-        all_ids = [sid.strip()] + member_ids
-        id_to_name = {sid.strip(): name.strip()}
+        # 유효성 검사 로직
+        all_ids = [rep_id.strip()] + member_ids
+        id_to_name = {rep_id.strip(): rep_name.strip()}
         for m_id, m_name in zip(member_ids, member_names):
             id_to_name[m_id] = m_name
 
-        is_ready = name and len(sid)==10 and all(member_names) and all(member_ids) and all(len(idx)==10 for idx in all_ids)
+        is_ready = rep_name and len(rep_id)==10 and all(member_names) and all(len(idx)==10 for idx in all_ids)
         
-        if st.button("🚀 예약 신청", key="btn_reservation", disabled=not is_ready):
+        if st.button("🚀 예약 신청하기", key="btn_reservation", disabled=not is_ready):
             duration = datetime.strptime(en_t, "%H:%M") - datetime.strptime(st_t, "%H:%M")
             duplicate_found, culprit_id = check_team_duplication(all_ids, sel_date)
             
@@ -193,15 +203,15 @@ with tabs[0]:
                 st.error(f"❌ 예약 실패: '{culprit_name}'님은 해당 날짜에 이미 예약 내역이 있습니다. (1인 1일 1회 제한)")
             elif check_overlap(sel_date, st_t, en_t, room): st.error("❌ 이미 예약된 시간입니다.")
             else:
-                new_data = [dept, name.strip(), sid.strip(), total_count, str(sel_date), st_t, en_t, room, "미입실", ",".join(member_ids)]
+                new_data = [rep_dept, rep_name.strip(), rep_id.strip(), total_count, str(sel_date), st_t, en_t, room, "미입실", ",".join(member_ids)]
                 pd.DataFrame([new_data], columns=df_all.columns).to_csv(DB_FILE, mode='a', header=not os.path.exists(DB_FILE), index=False, encoding='utf-8-sig')
                 st.session_state.reserve_success = True
-                st.session_state.last_res = {"name": name, "sid": sid, "room": room, "date": str(sel_date), "start": st_t, "end": en_t}
+                st.session_state.last_res = {"name": rep_name, "sid": rep_id, "room": room, "date": str(sel_date), "start": st_t, "end": en_t}
                 st.rerun()
     else:
         res = st.session_state.last_res
         st.success("🎉 예약이 완료되었습니다!")
-        st.markdown(f'<div class="success-receipt"><div class="receipt-title">🌿 예약 확인서</div><div class="receipt-item"><span>신청자</span><b>{res["name"]} ({res["sid"]})</b></div><div class="receipt-item"><span>장소</span><b>{res["room"]}</b></div><div class="receipt-item"><span>시간</span><b>{res["date"]} / {res["start"]}~{res["end"]}</b></div></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="success-receipt"><div class="receipt-title">🌿 예약 확인서</div><div class="receipt-item"><span>신청자</span><b>{res["name"]} ({res["sid"]})</b></div><div class="receipt-item"><span>장소</span><b style="color: var(--point-color);">{res["room"]}</b></div><div class="receipt-item"><span>시간</span><b>{res["date"]} / {res["start"]} ~ {res["end"]}</b></div></div>', unsafe_allow_html=True)
         if st.button("처음으로 돌아가기"): st.session_state.reserve_success = False; st.rerun()
 
 with tabs[1]:

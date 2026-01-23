@@ -236,8 +236,8 @@ with tabs[2]:
 with tabs[3]:
     st.markdown('<div class="step-header">➕ 이용 시간 연장</div>', unsafe_allow_html=True)
     ec1, ec2 = st.columns(2)
-    ext_n = ec1.text_input("이름 (연장 신청)", key="ext_n_input")
-    ext_id = ec2.text_input("학번 (연장 신청)", key="ext_id_input", max_chars=10)
+    ext_n = ec1.text_input("구성원 이름", key="ext_n_input")
+    ext_id = ec2.text_input("구성원 학번 (10자리)", key="ext_id_input", max_chars=10)
     
     if st.button("연장 가능 여부 확인", key="btn_ext_check"):
         df_e = get_latest_df()
@@ -274,8 +274,8 @@ with tabs[3]:
 with tabs[4]:
     st.markdown('<div class="step-header">♻️ 예약 반납 및 취소</div>', unsafe_allow_html=True)
     cc1, cc2 = st.columns(2)
-    can_n = cc1.text_input("이름 (취소 신청)", key="can_n_input")
-    can_id = cc2.text_input("학번 (취소 신청)", key="can_id_input", max_chars=10)
+    can_n = cc1.text_input("구성원 이름", key="can_n_input")
+    can_id = cc2.text_input("구성원 학번 (10자리)", key="can_id_input", max_chars=10)
     
     if st.button("내 예약 찾기", key="btn_can_lookup"):
         df_c = get_latest_df()
@@ -308,6 +308,7 @@ with st.expander("🛠️ 관리자 전용 메뉴"):
                 st.rerun()
         else:
             st.info("관리할 예약 내역이 존재하지 않습니다.")
+
 
 
 

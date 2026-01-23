@@ -153,7 +153,7 @@ with tabs[0]:
         st.session_state.reserve_success = False
         st.session_state.last_res = {}
     if not st.session_state.reserve_success:
-        st.markdown('<div class="step-header">1. 인원 및 날짜 선택)</div>', unsafe_allow_html=True)
+        st.markdown('<div class="step-header">1. 인원 및 날짜 선택</div>', unsafe_allow_html=True)
         c1, c2 = st.columns(2)
         total_count = c1.number_input("이용 인원 (대표자 포함 3~6명)", min_value=3, max_value=6, value=3, key="reg_count")
         date_options = [now_kst.date(), (now_kst + timedelta(days=1)).date()]
@@ -294,3 +294,4 @@ with st.expander("🛠️ 관리자 전용 메뉴"):
                 st.rerun()
         else:
             st.info("관리할 예약 내역이 존재하지 않습니다.")
+

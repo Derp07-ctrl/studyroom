@@ -7,7 +7,7 @@ from datetime import datetime, timedelta, timezone
 # [필독] 구글 시트 설정
 # 1. 구글 시트 공유 설정을 '링크가 있는 모든 사용자 - 편집자'로 변경하세요.
 # 2. 아래 URL을 본인의 시트 주소로 교체하세요.
-SHEET_URL = "https://docs.google.com/spreadsheets/d/your-sheet-id-here/edit?usp=sharing"
+SHEET_URL = "https://docs.google.com/spreadsheets/d/1c6BlR4K2iRBU2gBY7iBsOHUIQmBZYXRqRbyLGct_HPI/edit?usp=sharing"
 
 # 사진 저장 폴더 (서버 재시작 전까지 유지)
 IMG_DIR = "id_cards"
@@ -300,3 +300,4 @@ with st.expander("🛠️ 관리자 전용 메뉴"):
                 df_final = df_all.drop(df_all.index[sel_idx])
                 update_gsheet(df_final)
                 st.success("삭제되었습니다."); st.rerun()
+

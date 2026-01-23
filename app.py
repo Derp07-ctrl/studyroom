@@ -6,7 +6,7 @@ from datetime import datetime, timedelta, timezone
 
 # 구글 시트 URL (본인의 시트 주소로 교체하세요)
 # 시트 공유 설정: '링크가 있는 모든 사용자 - 편집자' 필수
-SHEET_URL = "https://docs.google.com/spreadsheets/d/your-sheet-id/edit?usp=sharing"
+SHEET_URL = "https://docs.google.com/spreadsheets/d/1c6BlR4K2iRBU2gBY7iBsOHUIQmBZYXRqRbyLGct_HPI/edit?usp=sharing"
 
 # 학생증 사진 저장 폴더
 IMG_DIR = "id_cards"
@@ -271,3 +271,4 @@ with st.expander("🛠️ 관리자 전용 메뉴"):
             if st.button("퇴실/강제삭제"):
                 df_all = df_all.drop(df_all.index[sel])
                 update_gsheet(df_all); st.success("삭제되었습니다."); st.rerun()
+

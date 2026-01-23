@@ -99,11 +99,10 @@ st.markdown("""
     .stButton>button { background-color: var(--point-color); color: white; border-radius: 10px; font-weight: bold; border: none; width: 100%; height: 3.2rem; }
     .stButton>button:disabled { background-color: #E0E0E0 !important; color: #9E9E9E !important; cursor: not-allowed !important; }
     .schedule-card, .res-card { padding: 15px; border-radius: 12px; border-left: 6px solid var(--point-color); background-color: rgba(167, 215, 197, 0.1); margin-bottom: 12px; }
-    .step-header { color: var(--point-dark); font-weight: bold; border-bottom: 2px solid var(--point-color); padding-bottom: 5px; margin-bottom: 15px; font-size: 1.2rem; }
+    .step-header { color: var(--point-dark); font-weight: bold; border-bottom: 2px solid var(--point-color); padding-bottom: 5px; margin-bottom: 15px; font-size: 1.1rem; }
     .success-receipt { border: 2px dashed var(--point-color); padding: 25px; border-radius: 15px; margin-top: 20px; background-color: white; color: black; }
     .receipt-title { color: var(--point-color); font-size: 1.5rem; font-weight: bold; text-align: center; margin-bottom: 20px; }
     .receipt-item { display: flex; justify-content: space-between; margin-bottom: 10px; border-bottom: 1px solid rgba(167, 215, 197, 0.3); padding-bottom: 5px; }
-    .member-box { padding: 10px; border: 1px solid #f0f2f6; border-radius: 10px; margin-bottom: 10px; background-color: #ffffff; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -148,44 +147,39 @@ with tabs[0]:
         st.session_state.last_res = {}
     
     if not st.session_state.reserve_success:
-        # [변경] 구성원 정보 입력 단계: 인원 선택 스타일 개선
         st.markdown('<div class="step-header">1. 이용 인원 및 구성원 정보 입력</div>', unsafe_allow_html=True)
         
-        # 인원 선택을 가로로 배치하여 공간 절약
-        total_count = st.select_slider("이용 인원을 선택하세요 (대표자 포함)", options=[3, 4, 5, 6], value=3, key="reg_count")
+        # 가로폭을 줄이기 위해 컬럼 분할
+        ic1, ic2 = st.columns([1, 2])
+        total_count = ic1.selectbox("이용 인원", [3, 4, 5, 6], key="reg_count")
         
-        st.markdown(f"**👤 대표자 정보**")
-        with st.container():
-            rc1, rc2, rc3 = st.columns([1.5, 1.2, 1])
-            rep_dept = rc1.selectbox("학과", depts, key="rep_dept")
-            rep_name = rc2.text_input("이름", key="rep_name", placeholder="성함")
-            rep_id = rc3.text_input("학번", key="rep_id", max_chars=10, placeholder="10자리")
+        st.write("**👤 대표자**")
+        rc1, rc2, rc3 = st.columns([1.5, 1.2, 1])
+        rep_dept = rc1.selectbox("학과", depts, key="rep_dept", label_visibility="collapsed")
+        rep_name = rc2.text_input("이름", key="rep_name", placeholder="성함", label_visibility="collapsed")
+        rep_id = rc3.text_input("학번", key="rep_id", max_chars=10, placeholder="10자리", label_visibility="collapsed")
 
-        st.markdown(f"**👥 구성원 정보 (대표자 제외 {total_count-1}명)**")
+        st.write(f"**👥 구성원 ({total_count-1}명)**")
         member_names, member_ids = [], []
         for i in range(total_count - 1):
-            st.markdown(f'<div style="font-size:0.85rem; color:#666; margin-bottom:5px;">팀원 {i+1}</div>', unsafe_allow_html=True)
             mc1, mc2, mc3 = st.columns([1.5, 1.2, 1])
-            m_dept = mc1.selectbox(f"학과", depts, key=f"m_dept_{i}", label_visibility="collapsed")
-            m_name = mc2.text_input(f"이름", key=f"m_n_{i}", placeholder="성함", label_visibility="collapsed")
-            m_id = mc3.text_input(f"학번", key=f"m_id_{i}", max_chars=10, placeholder="10자리", label_visibility="collapsed")
-            member_names.append(m_name.strip())
-            member_ids.append(m_id.strip())
+            m_dept = mc1.selectbox(f"학과{i}", depts, key=f"m_dept_{i}", label_visibility="collapsed")
+            m_name = mc2.text_input(f"이름{i}", key=f"m_n_{i}", placeholder="성함", label_visibility="collapsed")
+            m_id = mc3.text_input(f"학번{i}", key=f"m_id_{i}", max_chars=10, placeholder="10자리", label_visibility="collapsed")
+            member_names.append(m_name.strip()); member_ids.append(m_id.strip())
 
-        # [변경] 날짜 및 장소 선택 단계
         st.markdown('<div class="step-header">2. 예약 날짜/장소/시간 선택</div>', unsafe_allow_html=True)
-        sc1, sc2, tc1, tc2 = st.columns([2, 1.5, 1, 1])
+        sc1, sc2, tc1, tc2 = st.columns([1.2, 1.2, 1, 1])
         
-        room = sc1.selectbox("🚪 장소 선택", ["1번 스터디룸", "2번 스터디룸"], key="reg_room")
+        room = sc1.selectbox("🚪 장소", ["1번 스터디룸", "2번 스터디룸"], key="reg_room")
         date_options = [now_kst.date(), (now_kst + timedelta(days=1)).date()]
-        sel_date = sc2.selectbox("📅 예약 날짜", date_options, format_func=lambda x: x.strftime("%Y-%m-%d"), key="reg_date")
+        sel_date = sc2.selectbox("📅 날짜", date_options, format_func=lambda x: x.strftime("%Y-%m-%d"), key="reg_date")
         
         threshold_time = (now_kst - timedelta(minutes=15)).strftime("%H:%M")
         available_start = [t for t in time_options_all if t >= threshold_time] if str(sel_date) == str(now_kst.date()) else time_options_all
         st_t = tc1.selectbox("⏰ 시작", available_start, key="reg_start")
         en_t = tc2.selectbox("⏰ 종료", [t for t in time_options_all if t > st_t], key="reg_end")
 
-        # 유효성 검사 로직
         all_ids = [rep_id.strip()] + member_ids
         id_to_name = {rep_id.strip(): rep_name.strip()}
         for m_id, m_name in zip(member_ids, member_names):

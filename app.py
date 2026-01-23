@@ -38,12 +38,6 @@ def check_team_duplication(member_ids, target_date):
             return True, m_id
     return False, ""
 
-def is_already_booked(rep_name, rep_id):
-    df = get_latest_df()
-    if df.empty: return False
-    duplicate = df[(df["이름"] == str(rep_name).strip()) & (df["학번"] == str(rep_id).strip())]
-    return not duplicate.empty
-
 def check_overlap(date, start_t, end_t, room):
     df = get_latest_df()
     if df.empty: return False
@@ -133,8 +127,7 @@ with st.sidebar:
             if not occ.empty:
                 current_user = occ.iloc[0]
                 status_color = "#3E7D6B" if current_user["출석"] == "입실완료" else "#E67E22"
-                status_text = "현재 이용 중" if current_user["출석"] == "입실완료" else "인증 대기 중"
-                st.markdown(f'<div style="margin-bottom: -15px;"><h3 style="color:{status_color}; margin-bottom: 5px;">{status_text}</h3><p style="font-size: 1.1rem; font-weight: bold;">⏰ 종료 예정 시각: <span style="background-color: #f0f2f6; padding: 2px 5px; border-radius: 4px; color: black;">{current_user["종료"]}</span></p></div>', unsafe_allow_html=True)
+                st.markdown(f'<div style="margin-bottom: -15px;"><h3 style="color:{status_color}; margin-bottom: 5px;">{"현재 이용 중" if current_user["출석"] == "입실완료" else "인증 대기 중"}</h3><p style="font-size: 1.1rem; font-weight: bold;">⏰ 종료 예정 시각: <span style="background-color: #f0f2f6; padding: 2px 5px; border-radius: 4px; color: black;">{current_user["종료"]}</span></p></div>', unsafe_allow_html=True)
                 if current_user["출석"] == "미입실": st.warning("⚠️ 15분 내 QR 인증 필요")
                 st.divider()
             else: st.success("현재 비어 있음")
@@ -153,7 +146,7 @@ with tabs[0]:
         st.session_state.reserve_success = False
         st.session_state.last_res = {}
     if not st.session_state.reserve_success:
-        st.markdown('<div class="step-header">1. 인원 및 날짜 선택</div>', unsafe_allow_html=True)
+        st.markdown('<div class="step-header">1. 인원 및 날짜 선택 (오늘/내일만 가능)</div>', unsafe_allow_html=True)
         c1, c2 = st.columns(2)
         total_count = c1.number_input("이용 인원 (대표자 포함 3~6명)", min_value=3, max_value=6, value=3, key="reg_count")
         date_options = [now_kst.date(), (now_kst + timedelta(days=1)).date()]
@@ -183,13 +176,22 @@ with tabs[0]:
         en_t = tc2.selectbox("⏰ 종료", [t for t in time_options_all if t > st_t], key="reg_end")
 
         all_ids = [sid.strip()] + member_ids
+        # 중복 체크 시 이름을 불러오기 위한 딕셔너리 생성
+        id_to_name = {sid.strip(): name.strip()}
+        for m_id, m_name in zip(member_ids, member_names):
+            id_to_name[m_id] = m_name
+
         is_ready = name and len(sid)==10 and all(member_names) and all(member_ids) and all(len(idx)==10 for idx in all_ids)
         
         if st.button("🚀 예약 신청", key="btn_reservation", disabled=not is_ready):
             duration = datetime.strptime(en_t, "%H:%M") - datetime.strptime(st_t, "%H:%M")
             duplicate_found, culprit_id = check_team_duplication(all_ids, sel_date)
+            
             if duration > timedelta(hours=3): st.error("🚫 최대 이용 가능 시간은 3시간입니다.")
-            elif duplicate_found: st.error(f"❌ 학번 '{culprit_id}'님은 해당 날짜에 이미 예약 내역이 있습니다. (1인 1일 1회 제한)")
+            elif duplicate_found:
+                # [수정] 학번 대신 이름을 찾아서 문구 출력
+                culprit_name = id_to_name.get(culprit_id, culprit_id)
+                st.error(f"❌ 예약 실패: '{culprit_name}'님은 해당 날짜에 이미 예약 내역이 있습니다. (1인 1일 1회 제한)")
             elif check_overlap(sel_date, st_t, en_t, room): st.error("❌ 이미 예약된 시간입니다.")
             else:
                 new_data = [dept, name.strip(), sid.strip(), total_count, str(sel_date), st_t, en_t, room, "미입실", ",".join(member_ids)]
@@ -200,7 +202,7 @@ with tabs[0]:
     else:
         res = st.session_state.last_res
         st.success("🎉 예약이 완료되었습니다!")
-        st.markdown(f'<div class="success-receipt"><div class="receipt-title">🌿 예약 확인서</div><div class="receipt-item"><span>신청자</span><b>{res["name"]} ({res["sid"]})</b></div><div class="receipt-item"><span>장소</span><b style="color: var(--point-color);">{res["room"]}</b></div><div class="receipt-item"><span>시간</span><b>{res["date"]} / {res["start"]} ~ {res["end"]}</b></div></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="success-receipt"><div class="receipt-title">🌿 예약 확인서</div><div class="receipt-item"><span>신청자</span><b>{res["name"]} ({res["sid"]})</b></div><div class="receipt-item"><span>장소</span><b>{res["room"]}</b></div><div class="receipt-item"><span>시간</span><b>{res["date"]} / {res["start"]}~{res["end"]}</b></div></div>', unsafe_allow_html=True)
         if st.button("처음으로 돌아가기"): st.session_state.reserve_success = False; st.rerun()
 
 with tabs[1]:
@@ -210,7 +212,6 @@ with tabs[1]:
     m_s = mc2.text_input("조회할 학번 (10자리)", key="lookup_s", max_chars=10)
     if st.button("조회하기", key="btn_lookup"):
         df_curr = get_latest_df()
-        # 대표자로 예약했거나 팀원으로 포함된 경우 모두 검색
         res_list = df_curr[((df_curr["이름"] == m_n.strip()) & (df_curr["학번"] == m_s.strip())) | (df_curr["팀원학번"].str.contains(m_s.strip(), na=False))]
         if not res_list.empty:
             for _, r in res_list.iterrows(): st.markdown(f'<div class="res-card">📍 {r["방번호"]} | {r["날짜"]} | ⏰ {r["시작"]}~{r["종료"]} | 상태: {r["출석"]}</div>', unsafe_allow_html=True)
@@ -237,7 +238,7 @@ with tabs[3]:
         res_e = df_e[(df_e["이름"] == en_n.strip()) & (df_e["학번"] == en_id.strip()) & (df_e["날짜"] == str(now_kst.date()))]
         if not res_e.empty:
             target = res_e.iloc[-1]
-            if target["출석"] != "입실완료": st.error("🚫 먼저 QR 인증을 통해 입실 확인을 해주세요.")
+            if target["출석"] != "입실완료": st.error("🚫 먼저 QR 인증 후에만 연장이 가능합니다.")
             else:
                 end_dt = datetime.combine(now_kst.date(), datetime.strptime(target['종료'], "%H:%M").time())
                 if (end_dt - timedelta(minutes=30)) <= now_kst < end_dt:
@@ -276,7 +277,7 @@ with tabs[4]:
             df_del = get_latest_df().drop(get_latest_df()[(get_latest_df()["이름"] == t["이름"]) & (get_latest_df()["학번"] == t["학번"]) & (get_latest_df()["날짜"] == t["날짜"]) & (get_latest_df()["시작"] == t["시작"])].index)
             df_del.to_csv(DB_FILE, index=False, encoding='utf-8-sig'); del st.session_state['cancel_list']; st.rerun()
 
-# --- [5. 관리자 메뉴 (디자인 및 로직 복구)] ---
+# --- [5. 관리자 메뉴] ---
 st.markdown('<div style="height:100px;"></div>', unsafe_allow_html=True)
 with st.expander("🛠️ 관리자 전용 메뉴"):
     pw = st.text_input("관리자 비밀번호", type="password", key="admin_pw")
@@ -294,4 +295,3 @@ with st.expander("🛠️ 관리자 전용 메뉴"):
                 st.rerun()
         else:
             st.info("관리할 예약 내역이 존재하지 않습니다.")
-

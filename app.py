@@ -233,59 +233,62 @@ with tabs[2]:
                 for _, row in room_day.iterrows(): st.markdown(f'<div class="schedule-card"><b>{row["시작"]}~{row["종료"]}</b> | 예약완료</div>', unsafe_allow_html=True)
     else: st.info("현재 등록된 예약 내역이 없습니다.")
 
-with tabs[3]: # 시간 연장
+with tabs[3]:
     st.markdown('<div class="step-header">➕ 이용 시간 연장 (대표자/구성원 공통)</div>', unsafe_allow_html=True)
-    ext_id = st.text_input("학번 입력 (10자리)", key="ext_id_input")
-    if st.button("연장 가능한 예약 찾기"):
+    ec1, ec2 = st.columns(2)
+    ext_n = ec1.text_input("이름 (연장 신청)", key="ext_n_input")
+    ext_id = ec2.text_input("학번 (연장 신청)", key="ext_id_input", max_chars=10)
+    
+    if st.button("연장 가능 여부 확인", key="btn_ext_check"):
         df_e = get_latest_df()
-        # [수정] 대표자 학번 혹은 팀원학번 컬럼에서 검색
+        # [수정] 이름과 학번 모두 체크하며, 구성원인 경우도 포함
         res_e = df_e[((df_e["학번"] == ext_id.strip()) | (df_e["팀원학번"].str.contains(ext_id.strip(), na=False))) & (df_e["날짜"] == str(now_kst.date()))]
         if not res_e.empty:
             target = res_e.iloc[-1]
             if target["출석"] != "입실완료": st.error("🚫 QR 인증 후에만 연장이 가능합니다.")
-            else: st.session_state['ext_target'] = target; st.success(f"✅ 확인됨: {target['시작']}~{target['종료']} 이용 중")
-        else: st.error("🔍 오늘 이용 중인 내역을 찾을 수 없습니다.")
-    
+            else:
+                end_dt = datetime.combine(now_kst.date(), datetime.strptime(target['종료'], "%H:%M").time())
+                if (end_dt - timedelta(minutes=30)) <= now_kst < end_dt:
+                    st.session_state['ext_target'] = target; st.success(f"✅ 연장 가능 (현재 종료 시각: {target['종료']})")
+                else: st.warning("⚠️ 이용 종료 30분 전부터만 연장 신청이 가능합니다.")
+        else: st.error("🔍 오늘 예약 내역을 찾을 수 없습니다.")
+
     if 'ext_target' in st.session_state:
         target = st.session_state['ext_target']
         df_f = get_latest_df()
         next_res = df_f[(df_f["방번호"] == target["방번호"]) & (df_f["날짜"] == target["날짜"]) & (df_f["시작"] >= target["종료"])].sort_values(by="시작")
-        limit_t = next_res.iloc[0]["시작"] if not next_res.empty else "23:30"
+        limit_t = next_res.iloc[0]["시작"] if not next_res.empty else "23:59"
+        limit_dt = datetime.strptime(limit_t, "%H:%M")
         curr_en_dt = datetime.strptime(target['종료'], "%H:%M")
-        opts = [(curr_en_dt + timedelta(minutes=30*i)).strftime("%H:%M") for i in range(1, 5) if (curr_en_dt + timedelta(minutes=30*i)).time() <= datetime.strptime(limit_t, "%H:%M").time()]
-        
-        if not opts: st.warning("다음 예약 일정이 있어 연장이 불가합니다.")
+        opts = [(curr_en_dt + timedelta(minutes=30*i)).strftime("%H:%M") for i in range(1, 5) if (curr_en_dt + timedelta(minutes=30*i)).time() <= limit_dt.time()]
+        if not opts: st.error(f"❌ 다음 예약 일정으로 인해 더 이상 연장이 불가합니다.")
         else:
-            new_en = st.selectbox("새 종료 시각", opts)
-            if st.button("연장 확정"):
+            new_en = st.selectbox("새로운 종료 시각 선택", opts, key="ext_sel_box")
+            if st.button("최종 연장 확정", key="btn_ext_confirm"):
                 df_up = get_latest_df()
-                # 인덱스를 찾아 업데이트
-                idx = df_up[(df_up["학과"] == target["학과"]) & (df_up["학번"] == target["학번"]) & (df_up["시작"] == target["시작"])].index
+                idx = df_up[(df_up["날짜"] == target["날짜"]) & (df_up["방번호"] == target["방번호"]) & (df_up["시작"] == target["시작"])].index
                 df_up.loc[idx, "종료"] = new_en
                 df_up.to_csv(DB_FILE, index=False, encoding='utf-8-sig')
-                st.success(f"연장 완료! (~{new_en})"); del st.session_state['ext_target']; st.rerun()
+                st.success(f"연장 완료! ({new_en})"); del st.session_state['ext_target']; st.rerun()
 
-with tabs[4]: # 반납 및 취소
-    st.markdown('<div class="step-header">♻️ 예약 취소 및 조기 반납 (대표자/구성원 공통)</div>', unsafe_allow_html=True)
-    can_id = st.text_input("학번 입력 (10자리)", key="can_id_input")
-    if st.button("취소/반납 가능한 예약 찾기"):
+with tabs[4]:
+    st.markdown('<div class="step-header">♻️ 예약 반납 및 취소 (대표자/구성원 공통)</div>', unsafe_allow_html=True)
+    cc1, cc2 = st.columns(2)
+    can_n = cc1.text_input("이름 (취소 신청)", key="can_n_input")
+    can_id = cc2.text_input("학번 (취소 신청)", key="can_id_input", max_chars=10)
+    
+    if st.button("내 예약 찾기", key="btn_can_lookup"):
         df_c = get_latest_df()
-        # [수정] 대표자 학번 혹은 팀원학번 컬럼에서 검색
         res_c = df_c[(df_c["학번"] == can_id.strip()) | (df_c["팀원학번"].str.contains(can_id.strip(), na=False))]
         if not res_c.empty: st.session_state['cancel_list'] = res_c
         else: st.error("🔍 예약 내역이 없습니다.")
-        
     if 'cancel_list' in st.session_state:
-        c_list = st.session_state['cancel_list']
-        opts = [f"{r['날짜']} | {r['방번호']} ({r['시작']}~{r['종료']})" for _, r in c_list.iterrows()]
-        sel_idx = st.selectbox("처리할 내역 선택", range(len(opts)), format_func=lambda x: opts[x])
-        if st.button("최종 확인 (취소/반납)"):
-            t = c_list.iloc[sel_idx]
-            df_curr = get_latest_df()
-            # 정확한 행을 찾아 삭제 (기준: 학번, 날짜, 시작시간, 방번호)
-            df_final = df_curr.drop(df_curr[(df_curr["학번"] == t["학번"]) & (df_curr["날짜"] == t["날짜"]) & (df_curr["시작"] == t["시작"])].index)
-            df_final.to_csv(DB_FILE, index=False, encoding='utf-8-sig')
-            st.success("정상적으로 처리되었습니다."); del st.session_state['cancel_list']; st.rerun()
+        opts = [f"{r['날짜']} | {r['방번호']} ({r['시작']}~{r['종료']})" for _, r in st.session_state['cancel_list'].iterrows()]
+        target_idx = st.selectbox("처리할 내역 선택", range(len(opts)), format_func=lambda x: opts[x])
+        if st.button("최종 취소/반납 수행"):
+            t = st.session_state['cancel_list'].iloc[target_idx]
+            df_final = get_latest_df().drop(get_latest_df()[(get_latest_df()["날짜"] == t["날짜"]) & (get_latest_df()["방번호"] == t["방번호"]) & (get_latest_df()["시작"] == t["시작"])].index)
+            df_final.to_csv(DB_FILE, index=False, encoding='utf-8-sig'); del st.session_state['cancel_list']; st.rerun()
 
 # --- [5. 관리자 메뉴] ---
 st.markdown('<div style="height:100px;"></div>', unsafe_allow_html=True)
@@ -305,5 +308,6 @@ with st.expander("🛠️ 관리자 전용 메뉴"):
                 st.rerun()
         else:
             st.info("관리할 예약 내역이 존재하지 않습니다.")
+
 
 

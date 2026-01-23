@@ -1,5 +1,4 @@
 import streamlit as st
-from streamlit_gsheets import GSheetsConnection
 import pandas as pd
 import os
 from datetime import datetime, timedelta, timezone
@@ -90,6 +89,7 @@ st.markdown("""
     <style>
     :root { --point-color: #A7D7C5; --point-dark: #3E7D6B; }
     .stButton>button { background-color: var(--point-color); color: white; border-radius: 10px; font-weight: bold; border: none; width: 100%; }
+    .stButton>button:disabled { background-color: #E0E0E0 !important; color: #9E9E9E !important; cursor: not-allowed !important; }
     .schedule-card, .res-card { padding: 15px; border-radius: 12px; border-left: 6px solid var(--point-color); background-color: rgba(167, 215, 197, 0.1); margin-bottom: 12px; }
     .step-header { color: var(--point-dark); font-weight: bold; border-bottom: 2px solid var(--point-color); padding-bottom: 5px; margin-bottom: 15px; font-size: 1.2rem; }
     .success-receipt { border: 2px dashed var(--point-color); padding: 25px; border-radius: 15px; margin-top: 20px; background-color: white; color: black; }
@@ -157,12 +157,9 @@ with tabs[0]:
         c1, c2, c3, c4 = st.columns(4)
         dept = c1.selectbox("🏢 학과", ["스마트팜과학과", "식품생명공학과", "유전생명공학과", "융합바이오·신소재공학과"], key="reg_dept")
         name = c2.text_input("👤 이름", key="reg_name")
-        
-        # [수정] 학번 입력 제한: 숫자만 10자리
         sid = c3.text_input("🆔 학번", key="reg_sid", max_chars=10, placeholder="예: 2024123456")
         count = c4.number_input("👥 인원 (최소 3명)", min_value=3, value=3, key="reg_count")
         
-        # 유효성 검사 (숫자인지 && 10자리인지)
         is_sid_valid = sid.isdigit() and len(sid) == 10
         if sid:
             if not sid.isdigit(): st.caption("❌ **숫자만** 입력 가능합니다.")
@@ -184,7 +181,6 @@ with tabs[0]:
             st_t = tc1.selectbox("⏰ 시작", available_start, key="reg_start")
             en_t = tc2.selectbox("⏰ 종료", [t for t in time_options_all if t > st_t], key="reg_end")
             
-            # 버튼 활성화 조건: 이름 입력 AND 학번 10자리 숫자 성공 시 활성화
             submit_disabled = not (name.strip() and is_sid_valid)
             
             if st.button("🚀 예약 신청", key="btn_reservation", disabled=submit_disabled):
@@ -213,7 +209,6 @@ with tabs[0]:
             st.session_state.reserve_success = False
             st.rerun()
         
-# [나머지 탭 동일]
 with tabs[1]:
     mc1, mc2 = st.columns(2)
     m_n, m_s = mc1.text_input("조회 이름", key="lookup_n"), mc2.text_input("조회 학번", key="lookup_s")
@@ -269,7 +264,7 @@ with tabs[3]:
         next_reservations = df_full[
             (df_full["방번호"] == target["방번호"]) & 
             (df_full["날짜"] == target["날짜"]) & 
-            (df_all["시작"] >= target["종료"])
+            (df_full["시작"] >= target["종료"])
         ].sort_values(by="시작")
         
         # 다음 예약이 있으면 그 시작 시간을 한계점으로 잡고, 없으면 밤 24:00를 한계점으로 설정
@@ -305,7 +300,7 @@ with tabs[3]:
                 st.success(f"✨ 연장 완료! {new_en}까지 이용 가능합니다.")
                 del st.session_state['ext_target']
                 st.rerun()
-                
+
 with tabs[4]:
     can_n, can_id = st.text_input("이름 (취소)", key="can_n"), st.text_input("학번 (취소)", key="can_id")
     if st.button("조회", key="btn_can_lookup"):
@@ -337,21 +332,3 @@ with st.expander("🛠️ 관리자 전용 메뉴"):
                 st.rerun()
         else:
             st.info("현재 관리할 예약 내역이 없습니다.")
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

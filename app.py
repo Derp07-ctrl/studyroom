@@ -234,7 +234,7 @@ with tabs[2]:
     else: st.info("현재 등록된 예약 내역이 없습니다.")
 
 with tabs[3]:
-    st.markdown('<div class="step-header">➕ 이용 시간 연장 (대표자/구성원 공통)</div>', unsafe_allow_html=True)
+    st.markdown('<div class="step-header">➕ 이용 시간 연장</div>', unsafe_allow_html=True)
     ec1, ec2 = st.columns(2)
     ext_n = ec1.text_input("이름 (연장 신청)", key="ext_n_input")
     ext_id = ec2.text_input("학번 (연장 신청)", key="ext_id_input", max_chars=10)
@@ -272,7 +272,7 @@ with tabs[3]:
                 st.success(f"연장 완료! ({new_en})"); del st.session_state['ext_target']; st.rerun()
 
 with tabs[4]:
-    st.markdown('<div class="step-header">♻️ 예약 반납 및 취소 (대표자/구성원 공통)</div>', unsafe_allow_html=True)
+    st.markdown('<div class="step-header">♻️ 예약 반납 및 취소</div>', unsafe_allow_html=True)
     cc1, cc2 = st.columns(2)
     can_n = cc1.text_input("이름 (취소 신청)", key="can_n_input")
     can_id = cc2.text_input("학번 (취소 신청)", key="can_id_input", max_chars=10)
@@ -308,6 +308,7 @@ with st.expander("🛠️ 관리자 전용 메뉴"):
                 st.rerun()
         else:
             st.info("관리할 예약 내역이 존재하지 않습니다.")
+
 
 
 

@@ -32,7 +32,6 @@ def check_team_duplication(member_ids, target_date):
     day_df = df[df["날짜"] == str(target_date)]
     for m_id in member_ids:
         if not m_id: continue
-        # 대표자 학번 또는 팀원학번 문자열 내에 포함되어 있는지 검사
         is_booked = day_df[(day_df["학번"] == m_id) | (day_df["팀원학번"].str.contains(m_id, na=False))]
         if not is_booked.empty:
             return True, m_id
@@ -146,13 +145,10 @@ with tabs[0]:
         st.session_state.reserve_success = False
         st.session_state.last_res = {}
     if not st.session_state.reserve_success:
-        st.markdown('<div class="step-header">1. 인원 및 날짜 선택 (오늘/내일만 가능)</div>', unsafe_allow_html=True)
-        c1, c2 = st.columns(2)
-        total_count = c1.number_input("이용 인원 (대표자 포함 3~6명)", min_value=3, max_value=6, value=3, key="reg_count")
-        date_options = [now_kst.date(), (now_kst + timedelta(days=1)).date()]
-        sel_date = c2.selectbox("예약 날짜", date_options, format_func=lambda x: x.strftime("%Y-%m-%d"), key="reg_date")
-
-        st.markdown('<div class="step-header">2. 팀원 정보 입력 (학번 10자리)</div>', unsafe_allow_html=True)
+        # [변경] 구성원 정보 입력을 첫 번째 단계로 이동
+        st.markdown('<div class="step-header">1. 이용 인원 및 구성원 정보 입력 (학번 10자리)</div>', unsafe_allow_html=True)
+        total_count = st.number_input("이용 인원 (대표자 포함 3~6명)", min_value=3, max_value=6, value=3, key="reg_count")
+        
         st.write("**👤 대표자 정보**")
         rc1, rc2, rc3 = st.columns([2, 2, 1])
         dept = rc1.selectbox("학과", ["스마트팜과학과", "식품생명공학과", "유전생명공학과", "융합바이오·신소재공학과"], key="reg_dept")
@@ -167,16 +163,20 @@ with tabs[0]:
             m_id = mc2.text_input(f"팀원 {i+1} 학번", key=f"m_id_{i}", max_chars=10)
             member_names.append(m_n.strip()); member_ids.append(m_id.strip())
 
-        st.markdown('<div class="step-header">3. 장소 및 시간 선택</div>', unsafe_allow_html=True)
+        # [변경] 날짜 및 장소 선택을 두 번째 단계로 이동
+        st.markdown('<div class="step-header">2. 예약 날짜/장소/시간 선택</div>', unsafe_allow_html=True)
         sc1, sc2, tc1, tc2 = st.columns([2, 1, 1, 1])
-        room = sc1.selectbox("🚪 장소", ["1번 스터디룸", "2번 스터디룸"], key="reg_room")
+        
+        date_options = [now_kst.date(), (now_kst + timedelta(days=1)).date()]
+        sel_date = sc2.selectbox("📅 예약 날짜", date_options, format_func=lambda x: x.strftime("%Y-%m-%d"), key="reg_date")
+        room = sc1.selectbox("🚪 장소 선택", ["1번 스터디룸", "2번 스터디룸"], key="reg_room")
+        
         threshold_time = (now_kst - timedelta(minutes=15)).strftime("%H:%M")
         available_start = [t for t in time_options_all if t >= threshold_time] if str(sel_date) == str(now_kst.date()) else time_options_all
         st_t = tc1.selectbox("⏰ 시작", available_start, key="reg_start")
         en_t = tc2.selectbox("⏰ 종료", [t for t in time_options_all if t > st_t], key="reg_end")
 
         all_ids = [sid.strip()] + member_ids
-        # 중복 체크 시 이름을 불러오기 위한 딕셔너리 생성
         id_to_name = {sid.strip(): name.strip()}
         for m_id, m_name in zip(member_ids, member_names):
             id_to_name[m_id] = m_name
@@ -189,7 +189,6 @@ with tabs[0]:
             
             if duration > timedelta(hours=3): st.error("🚫 최대 이용 가능 시간은 3시간입니다.")
             elif duplicate_found:
-                # [수정] 학번 대신 이름을 찾아서 문구 출력
                 culprit_name = id_to_name.get(culprit_id, culprit_id)
                 st.error(f"❌ 예약 실패: '{culprit_name}'님은 해당 날짜에 이미 예약 내역이 있습니다. (1인 1일 1회 제한)")
             elif check_overlap(sel_date, st_t, en_t, room): st.error("❌ 이미 예약된 시간입니다.")
@@ -208,8 +207,8 @@ with tabs[0]:
 with tabs[1]:
     st.markdown('<div class="step-header">🔍 내 예약 내역 확인</div>', unsafe_allow_html=True)
     mc1, mc2 = st.columns(2)
-    m_n = mc1.text_input("대표자 이름", key="lookup_n")
-    m_s = mc2.text_input("대표자 학번 (10자리)", key="lookup_s", max_chars=10)
+    m_n = mc1.text_input("조회할 이름", key="lookup_n")
+    m_s = mc2.text_input("조회할 학번 (10자리)", key="lookup_s", max_chars=10)
     if st.button("조회하기", key="btn_lookup"):
         df_curr = get_latest_df()
         res_list = df_curr[((df_curr["이름"] == m_n.strip()) & (df_curr["학번"] == m_s.strip())) | (df_curr["팀원학번"].str.contains(m_s.strip(), na=False))]
@@ -295,4 +294,3 @@ with st.expander("🛠️ 관리자 전용 메뉴"):
                 st.rerun()
         else:
             st.info("관리할 예약 내역이 존재하지 않습니다.")
-

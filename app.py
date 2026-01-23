@@ -208,8 +208,8 @@ with tabs[0]:
 with tabs[1]:
     st.markdown('<div class="step-header">🔍 내 예약 내역 확인</div>', unsafe_allow_html=True)
     mc1, mc2 = st.columns(2)
-    m_n = mc1.text_input("조회할 이름", key="lookup_n")
-    m_s = mc2.text_input("조회할 학번 (10자리)", key="lookup_s", max_chars=10)
+    m_n = mc1.text_input("대표자 이름", key="lookup_n")
+    m_s = mc2.text_input("대표자 학번 (10자리)", key="lookup_s", max_chars=10)
     if st.button("조회하기", key="btn_lookup"):
         df_curr = get_latest_df()
         res_list = df_curr[((df_curr["이름"] == m_n.strip()) & (df_curr["학번"] == m_s.strip())) | (df_curr["팀원학번"].str.contains(m_s.strip(), na=False))]
@@ -295,3 +295,4 @@ with st.expander("🛠️ 관리자 전용 메뉴"):
                 st.rerun()
         else:
             st.info("관리할 예약 내역이 존재하지 않습니다.")
+

@@ -1,0 +1,13 @@
+name: Keep App Awake
+on:
+  schedule:
+    - cron: '0 * * * *' # 매시간 정각에 실행
+  workflow_dispatch:      # 직접 버튼 눌러 실행 가능
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send Request
+        run: |
+          curl -s -o /dev/null -w "%{http_code}" https://여기에-본인-앱-주소.streamlit.app

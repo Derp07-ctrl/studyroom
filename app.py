@@ -155,16 +155,16 @@ with tabs[0]:
         st.write("**👤 대표자**")
         rc1, rc2, rc3 = st.columns([1.5, 1.2, 1])
         rep_dept = rc1.selectbox("학과", depts, key="rep_dept", label_visibility="collapsed")
-        rep_name = rc2.text_input("이름", key="rep_name", placeholder="성함", label_visibility="collapsed")
-        rep_id = rc3.text_input("학번", key="rep_id", max_chars=10, placeholder="10자리", label_visibility="collapsed")
+        rep_name = rc2.text_input("이름", key="rep_name", placeholder="이름", label_visibility="collapsed")
+        rep_id = rc3.text_input("학번", key="rep_id", max_chars=10, placeholder="학번", label_visibility="collapsed")
 
         st.write(f"**👥 구성원 ({total_count-1}명)**")
         member_names, member_ids = [], []
         for i in range(total_count - 1):
             mc1, mc2, mc3 = st.columns([1.5, 1.2, 1])
             m_dept = mc1.selectbox(f"학과{i}", depts, key=f"m_dept_{i}", label_visibility="collapsed")
-            m_name = mc2.text_input(f"이름{i}", key=f"m_n_{i}", placeholder="성함", label_visibility="collapsed")
-            m_id = mc3.text_input(f"학번{i}", key=f"m_id_{i}", max_chars=10, placeholder="10자리", label_visibility="collapsed")
+            m_name = mc2.text_input(f"이름{i}", key=f"m_n_{i}", placeholder="이름", label_visibility="collapsed")
+            m_id = mc3.text_input(f"학번{i}", key=f"m_id_{i}", max_chars=10, placeholder="학번", label_visibility="collapsed")
             member_names.append(m_name.strip()); member_ids.append(m_id.strip())
 
         st.markdown('<div class="step-header">2. 예약 날짜/장소/시간 선택</div>', unsafe_allow_html=True)
@@ -338,6 +338,7 @@ with st.expander("🛠️ 관리자 전용 메뉴"):
                 )
             else:
                 st.caption("아직 저장된 히스토리 기록이 없습니다.")
+
 
 
 

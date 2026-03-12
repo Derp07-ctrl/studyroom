@@ -289,13 +289,12 @@ with tabs[4]:
             df_final = get_latest_df().drop(get_latest_df()[(get_latest_df()["날짜"] == t["날짜"]) & (get_latest_df()["방번호"] == t["방번호"]) & (get_latest_df()["시작"] == t["시작"])].index)
             df_final.to_csv(DB_FILE, index=False, encoding='utf-8-sig'); del st.session_state['cancel_list']; st.rerun()
 
-# --- [5. 관리자 메뉴] ---
 st.markdown('<div style="height:100px;"></div>', unsafe_allow_html=True)
 with st.expander("🛠️ 관리자 전용 메뉴"):
     pw = st.text_input("관리자 비밀번호", type="password", key="admin_pw")
     if pw == "bio1234":
-        # 탭을 나누어 현재 예약과 전체 기록을 구분
-        admin_tab1, admin_tab2 = st.tabs(["📝 현재 실시간 예약", "📜 누적 전체 기록"])
+        # 탭을 나누어 실시간 예약과 누적 히스토리 구분
+        admin_tab1, admin_tab2 = st.tabs(["📝 실시간 예약 관리", "📜 누적 전체 기록"])
 
         with admin_tab1:
             st.markdown("#### 📍 현재 활성 예약 목록")
@@ -303,35 +302,23 @@ with st.expander("🛠️ 관리자 전용 메뉴"):
             if not df_ad.empty:
                 st.dataframe(df_ad, use_container_width=True)
                 labels = [f"{r['이름']} | {r['날짜']} | {r['시작']} ({r['방번호']})" for _, r in df_ad.iterrows()]
-                sel = st.selectbox("강제 삭제/퇴실 대상을 선택하세요", range(len(labels)), format_func=lambda x: labels[x])
-                
-                if st.button("선택된 예약 삭제"):
+                sel = st.selectbox("삭제 대상을 선택하세요", range(len(labels)), format_func=lambda x: labels[x])
+                if st.button("강제 삭제"):
                     t = df_ad.iloc[sel]
-                    # 현재 DB에서만 삭제 (히스토리에는 이미 신청 시 저장됨)
                     df_final = get_latest_df().drop(df_ad[(df_ad["날짜"] == t["날짜"]) & (df_ad["방번호"] == t["방번호"]) & (df_ad["시작"] == t["시작"])].index)
-                    df_final.to_csv(DB_FILE, index=False, encoding='utf-8-sig')
-                    st.success("삭제 완료")
-                    st.rerun()
-            else:
-                st.info("현재 활성화된 예약 내역이 없습니다.")
+                    df_final.to_csv(DB_FILE, index=False, encoding='utf-8-sig'); st.rerun()
+            else: st.info("활성 예약 없음")
 
         with admin_tab2:
-            st.markdown("#### 📜 누적 전체 예약 히스토리")
-            if os.path.exists("history.csv"):
-                df_history = pd.read_csv("history.csv")
-                # 최신 기록이 위로 오도록 역순 출력
+            st.markdown("#### 📜 전체 예약 히스토리 (과거 기록 포함)")
+            if os.path.exists(HISTORY_FILE):
+                df_history = pd.read_csv(HISTORY_FILE)
+                # 최신순 정렬
                 st.dataframe(df_history.iloc[::-1], use_container_width=True)
-                
-                # 엑셀 보고용 다운로드 버튼
-                csv_data = df_history.to_csv(index=False, encoding='utf-8-sig').encode('utf-8-sig')
-                st.download_button(
-                    label="📥 전체 예약 기록 다운로드 (CSV)",
-                    data=csv_data,
-                    file_name=f"bio_studyroom_all_history.csv",
-                    mime="text/csv"
-                )
-            else:
-                st.info("아직 누적된 예약 기록이 없습니다.")
+                csv = df_history.to_csv(index=False, encoding='utf-8-sig').encode('utf-8-sig')
+                st.download_button("📥 전체 기록 다운로드 (CSV)", data=csv, file_name="bio_studyroom_history.csv", mime="text/csv")
+            else: st.info("누적 기록이 아직 없습니다.")
+
 
 
 

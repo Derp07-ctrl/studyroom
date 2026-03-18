@@ -216,7 +216,7 @@ with tabs[3]:
                 if (end_dt - timedelta(minutes=30)) <= now_kst < end_dt:
                     st.session_state['ext_target'] = target; st.success(f"✅ 연합 가능 (현재 종료: {target['종료']})")
                 else: st.warning("⚠️ 이용 종료 30분 전부터 신청 가능합니다.")
-        else: st.error("오늘 예약 내역 없음")
+        else: st.error("오늘 예약 내역을 찾을 수 없습니다.")
     if 'ext_target' in st.session_state:
         target = st.session_state['ext_target']
         df_f = get_latest_df()
@@ -224,7 +224,7 @@ with tabs[3]:
         limit_t = next_res.iloc[0]["시작"] if not next_res.empty else "23:59"
         curr_en_dt = datetime.strptime(target['종료'], "%H:%M")
         opts = [(curr_en_dt + timedelta(minutes=30*i)).strftime("%H:%M") for i in range(1, 5) if (curr_en_dt + timedelta(minutes=30*i)).time() <= datetime.strptime(limit_t, "%H:%M").time()]
-        if not opts: st.error("❌ 다음 예약 일정으로 인해 연장 불가")
+        if not opts: st.error("❌ 다음 예약 일정으로 더 이상 연장이 불가합니다.")
         else:
             new_en = st.selectbox("새 종료 시각", opts, key="ext_sel_box")
             if st.button("연장 확정", key="btn_ext_confirm"):
@@ -239,7 +239,7 @@ with tabs[4]:
     cc1, cc2 = st.columns(2)
     can_n = cc1.text_input("이름 (취소)", key="can_n_input")
     can_id = cc2.text_input("학번 (취소)", key="can_id_input", max_chars=10)
-    if st.button("예약 찾기", key="btn_can_lookup"):
+    if st.button("내 예약 찾기", key="btn_can_lookup"):
         df_c = get_latest_df()
         res_c = df_c[(df_c["학번"] == can_id.strip()) | (df_c["팀원학번"].str.contains(can_id.strip(), na=False))]
         if not res_c.empty: st.session_state['cancel_list'] = res_c
@@ -247,7 +247,7 @@ with tabs[4]:
     if 'cancel_list' in st.session_state:
         opts = [f"{r['날짜']} | {r['방번호']} ({r['시작']}~{r['종료']})" for _, r in st.session_state['cancel_list'].iterrows()]
         target_idx = st.selectbox("처리할 내역 선택", range(len(opts)), format_func=lambda x: opts[x])
-        if st.button("최종 취소"):
+        if st.button("최종 취소/반납"):
             t = st.session_state['cancel_list'].iloc[target_idx]
             df_final = get_latest_df().drop(get_latest_df()[(get_latest_df()["날짜"] == t["날짜"]) & (get_latest_df()["방번호"] == t["방번호"]) & (get_latest_df()["시작"] == t["시작"])].index)
             df_final.to_csv(DB_FILE, index=False, encoding='utf-8-sig'); del st.session_state['cancel_list']; st.rerun()

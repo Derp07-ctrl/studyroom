@@ -26,6 +26,40 @@ def get_latest_df():
         df[col] = df[col].astype(str).str.strip()
     return df
 
+def process_qr_checkin(df):
+    """QR 코드를 통한 입실 처리를 수행합니다."""
+    q_params = st.query_params
+    if "checkin" in q_params:
+        room_code = q_params["checkin"]
+        target_room = "1번 스터디룸" if room_code == "room1" else "2번 스터디룸"
+        
+        now_kst = get_kst_now().replace(tzinfo=None)
+        now_date = str(now_kst.date())
+        now_time = now_kst.strftime("%H:%M")
+        
+        # 예약 시작 15분 전부터 종료 시각 전까지만 인증 가능하도록 설정
+        early_limit = (now_kst + timedelta(minutes=15)).strftime("%H:%M")
+        
+        # 조건: 방번호 일치 + 날짜 일치 + 현재 시간이 (시작-15분)보다 뒤 + 종료시간 전 + 미입실 상태
+        mask = (df["방번호"] == target_room) & \
+               (df["날짜"] == now_date) & \
+               (df["시작"] <= early_limit) & \
+               (df["종료"] > now_time) & \
+               (df["출석"] == "미입실")
+        
+        if any(mask):
+            idx = df[mask].index[0]
+            user_name = df.loc[idx, "이름"]
+            df.loc[idx, "출석"] = "입실완료"
+            df.to_csv(DB_FILE, index=False, encoding='utf-8-sig')
+            st.balloons()
+            st.success(f"✅ 인증 성공: {user_name}님, {target_room} 입실 확인되었습니다!")
+            # 인증 후 URL 파라미터를 비워 중복 실행 방지
+            st.query_params.clear()
+        else:
+            st.warning(f"⚠️ {target_room} 인증 실패: 현재 예약 시간이 아니거나 이미 인증되었습니다.")
+    return df
+
 def check_team_duplication(member_ids, target_date):
     """대표자 및 팀원 중 한 명이라도 해당 날짜에 이미 예약이 있는지 전수 검사합니다."""
     df = get_latest_df()
@@ -74,7 +108,9 @@ current_time_str = now_kst.strftime("%H:%M")
 time_options_all = [f"{h:02d}:{m:02d}" for h in range(0, 24) for m in (0, 30)]
 depts = ["스마트팜과학과", "식품생명공학과", "유전생명공학과", "융합바이오·신소재공학과"]
 
+# [수정된 핵심 로직] 데이터 로드 후 즉시 QR 입실 여부 판단
 df_all = get_latest_df()
+df_all = process_qr_checkin(df_all)
 
 # --- [3. 사이드바 실시간 현황] ---
 with st.sidebar:
@@ -173,8 +209,6 @@ with tabs[0]:
             st.session_state.reserve_success = False
             st.rerun()
 
-# --- [🔍 내 예약 확인 및 기타 탭 생략] ---
-
 with tabs[1]:
     st.markdown('<div class="step-header">🔍 내 예약 내역 확인</div>', unsafe_allow_html=True)
     mc1, mc2 = st.columns(2)
@@ -249,7 +283,8 @@ with tabs[4]:
         target_idx = st.selectbox("처리할 내역 선택", range(len(opts)), format_func=lambda x: opts[x])
         if st.button("최종 취소"):
             t = st.session_state['cancel_list'].iloc[target_idx]
-            df_final = get_latest_df().drop(get_latest_df()[(get_latest_df()["날짜"] == t["날짜"]) & (get_latest_df()["방번호"] == t["방번호"]) & (get_latest_df()["시작"] == t["시작"])].index)
+            df_curr_f = get_latest_df()
+            df_final = df_curr_f.drop(df_curr_f[(df_curr_f["날짜"] == t["날짜"]) & (df_curr_f["방번호"] == t["방번호"]) & (df_curr_f["시작"] == t["시작"])].index)
             df_final.to_csv(DB_FILE, index=False, encoding='utf-8-sig'); del st.session_state['cancel_list']; st.rerun()
 
 # --- [5. 관리자 메뉴 (누적 기록 보존)] ---

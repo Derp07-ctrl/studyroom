@@ -52,7 +52,6 @@ def process_qr_checkin(df):
             user_name = df.loc[idx, "이름"]
             df.loc[idx, "출석"] = "입실완료"
             df.to_csv(DB_FILE, index=False, encoding='utf-8-sig')
-            st.balloons()
             st.success(f"✅ 인증 성공: {user_name}님, {target_room} 입실 확인되었습니다!")
             # 인증 후 URL 파라미터를 비워 중복 실행 방지
             st.query_params.clear()
